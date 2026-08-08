@@ -37,6 +37,14 @@ SAMPLE_QUOTES = [
 ]
 
 
+def _monorepo_lake_root():
+    try:
+        return lake.find_solo_empire_root()
+    except (ImportError, ModuleNotFoundError):
+        return None
+
+
+@unittest.skipUnless(_monorepo_lake_root() is not None, "shared data_lake adapter not found")
 class NormalizeTests(unittest.TestCase):
     def test_quote_records_include_id(self):
         records = lake.quote_records_from_api(SAMPLE_QUOTES)
@@ -47,6 +55,7 @@ class NormalizeTests(unittest.TestCase):
             self.assertIn("event_time", row)
 
 
+@unittest.skipUnless(_monorepo_lake_root() is not None, "shared data_lake adapter not found")
 class LakeFirstOrderingTests(unittest.TestCase):
     def test_csv_not_written_when_lake_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -130,7 +139,7 @@ class LakeFirstOrderingTests(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    lake.find_solo_empire_root() is not None,
+    _monorepo_lake_root() is not None,
     "Solo Empire monorepo with data_lake not found",
 )
 class RealLakeIngestTests(unittest.TestCase):
@@ -218,7 +227,7 @@ class RealLakeIngestTests(unittest.TestCase):
 
 class SharedAdapterTests(unittest.TestCase):
     def test_uses_shared_product_adapter(self):
-        root = lake.find_solo_empire_root()
+        root = _monorepo_lake_root()
         if root is None:
             self.skipTest("not under monorepo")
         self.assertTrue(

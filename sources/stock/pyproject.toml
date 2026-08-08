@@ -1,0 +1,13 @@
+[project]
+name = "book-stock-data"
+version = "0.1.0"
+description = "Stock market data ingestion and CLI from Yahoo Finance."
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.27"]
+
+[project.scripts]
+book-stock-data = "book_stock.ingest:main"
+book-stock-data-api = "book_stock.api:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

@@ -1,3 +1,0 @@
-[console_scripts]
-book-defi-data = book_defi.ingest:main
-book-defi-data-api = book_defi.api:main

@@ -1,0 +1,3 @@
+pool_id,chain,project,symbol,tvl_usd,apy,apy_base,apy_reward,reward_tokens,category,url,scraped_at
+pool-aave-usdc,Ethereum,aave-v3,USDC,1000000,5.5,5.0,0.5,,Lending,https://example.com/aave,2026-08-01 12:00:00
+pool-compound-dai,Ethereum,compound,DAI,500000,4.2,4.2,0,,Lending,https://example.com/compound,2026-08-01 12:00:00

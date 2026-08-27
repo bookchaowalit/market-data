@@ -2,6 +2,8 @@
 
 DeFi yield pools (DeFiLlama free yields API).
 
+Collection cron: `bash setup_cron.sh install` runs bounded DefiLlama capture daily at 07:00 into `data/exported/`. Lake ingest remains a separate command.
+
 Migration status: **lake-first** via shared Solo Empire
 `data_lake.product_adapter` (same path as crypto / stock / fx).
 

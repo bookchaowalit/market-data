@@ -193,7 +193,9 @@ def fetch_quotes(symbols: list) -> list:
 
 
 def _projection_timestamp() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # UTC: readers (product_store.parse_ts / _freshness) treat naive stamps as
+    # UTC, so a host-local stamp looked hours fresher (or older) than it was.
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def project_prices_csv(quotes: list[dict], output_dir: Path) -> Path:
@@ -399,12 +401,15 @@ def run_live_ingest(
             parent_raw_sha_prefix=str(lake_prices.get("run_id") or ""),
         )
 
+    # Read prior prices before this run appends to history; reading them
+    # afterwards compared each price with itself and "since last check"
+    # alerts never fired.
+    prev_prices = load_previous_prices(output_dir) if project_csv else {}
     if project_csv:
         project_prices_csv(quotes, output_dir)
         if write_history:
             project_history_csv(quotes, output_dir)
 
-    prev_prices = load_previous_prices(output_dir) if project_csv else {}
     print_alerts(quotes, alert_threshold, prev_prices)
 
     print(f"\n  {'Symbol':12s} {'Price':>12s} {'Change':>10s} {'Currency':>8s}")

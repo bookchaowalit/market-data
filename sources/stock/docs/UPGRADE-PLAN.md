@@ -27,6 +27,16 @@ Score: 8/10 -> 8.5/10 — quotes with NaN/inf/non-positive prices or duplicate s
 - CLI validation for `--symbols` and `--alert-threshold`; README Quick start uses `[lake]`.
 - Verified: `pytest -q -rs` 50 passed, 0 skipped (was 40) with the `[lake]` venv; ruff
   0.15.8 and 0.16.9 clean.
+- Refresh auth: `/v1/refresh` compares the bearer token with `hmac.compare_digest`
+  (`_refresh_token_ok`) instead of `==`, which leaked the matching prefix
+  length through timing; `tests/test_refresh_token_compare.py` pins it.
+- CSV projection stamps (`_projection_timestamp`) are UTC; they were host-local
+  but `product_store.parse_ts` reads naive stamps as UTC, so freshness was off
+  by the host offset (`tests/test_projection_timestamp_utc.py`).
+- `run_live_ingest` reads previous prices *before* appending this run to
+  `stock_history.csv`; it read them afterwards, so every price was compared
+  with itself and "since last check" alerts never fired
+  (`tests/test_alert_history_order.py`).
 
 ## Done in pass 2
 

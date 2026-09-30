@@ -19,7 +19,7 @@ import csv
 import json
 import math
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -195,7 +195,9 @@ def load_previous_pools(output_dir: Optional[Path] = None) -> dict:
 
 
 def _projection_timestamp() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # UTC: readers (product_store.parse_ts / _freshness) treat naive stamps as
+    # UTC, so a host-local stamp looked hours fresher (or older) than it was.
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def project_yields_csv(pools: list, output_dir: Path) -> Path:

@@ -43,7 +43,7 @@ SAMPLE_POOLS = [
 
 
 def _shared_adapter_available() -> bool:
-    return lake.find_solo_empire_root() is not None
+    return lake.shared_runtime_available()
 
 
 class IdentityAndDedupeTests(unittest.TestCase):
@@ -62,7 +62,10 @@ class IdentityAndDedupeTests(unittest.TestCase):
         )
         self.assertEqual(pid, again)
 
-    @unittest.skipUnless(_shared_adapter_available(), "shared data_lake adapter not found")
+    @unittest.skipUnless(
+        _shared_adapter_available(),
+        "shared data_lake runtime not installed (pip install -e .[lake])",
+    )
     def test_dedupe_same_pool_in_batch(self):
         pools = [
             {**SAMPLE_POOLS[0], "apy": 5.0},
@@ -80,7 +83,10 @@ class IdentityAndDedupeTests(unittest.TestCase):
             self.assertIn("event_time", r)
 
 
-@unittest.skipUnless(_shared_adapter_available(), "shared data_lake adapter not found")
+@unittest.skipUnless(
+    _shared_adapter_available(),
+    "shared data_lake runtime not installed (pip install -e .[lake])",
+)
 class LakeFirstOrderingTests(unittest.TestCase):
     def test_csv_not_written_when_lake_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -156,8 +162,8 @@ class LakeFirstOrderingTests(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    lake.find_solo_empire_root() is not None,
-    "Solo Empire monorepo with data_lake not found",
+    lake.shared_runtime_available(),
+    "shared data_lake runtime not installed (pip install -e .[lake])",
 )
 class RealLakeIngestTests(unittest.TestCase):
     def test_ingest_lineage_and_replay(self):
@@ -225,13 +231,18 @@ class RealLakeIngestTests(unittest.TestCase):
 
 
 class SharedAdapterTests(unittest.TestCase):
+    @unittest.skipUnless(
+        lake.shared_runtime_available(),
+        "shared data_lake runtime not installed (pip install -e .[lake])",
+    )
     def test_contract(self):
+        # The product delegates to the shared adapter (installed [lake] extra or parent checkout).
+        self.assertTrue(hasattr(lake._pa_mod(), "LakeProductContract"))
         root = lake.find_solo_empire_root()
-        if root is None:
-            self.skipTest("not under monorepo")
-        self.assertTrue(
-            (root / "infra" / "scripts" / "data_lake" / "product_adapter.py").is_file()
-        )
+        if root is not None:
+            self.assertTrue(
+                (root / "infra" / "scripts" / "data_lake" / "product_adapter.py").is_file()
+            )
         self.assertEqual(config.LAKE_SOURCE, "book-defi-data")
         self.assertEqual(config.LAKE_DOMAIN, "market")
         self.assertEqual(config.LAKE_DATASET_YIELDS, "defi_yields")

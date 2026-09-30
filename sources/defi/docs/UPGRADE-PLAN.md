@@ -14,6 +14,21 @@ Score: 8/10 -> 8.5/10 — NaN/inf/non-numeric APY or TVL no longer slips through
   formatting (`:.1f`) cannot raise on a string value.
 - P2: Record how many pools each filter rule dropped in the landing metadata.
 
+## Done in this pass (pass 4: edge cases)
+
+- `config.env_bool` returned False for anything but a true-ish word, so
+  `FREE_ONLY=` (blank line in .env/compose) or a typo silently disabled the
+  free-only guard; blank/unrecognised values now keep the safe default.
+- `scripts/scrape_defi_yields.parse_payload` aborted the whole capture when
+  one pool had a NaN/string optional metric (`apyBase`, `apyPct1D`, ...);
+  those are now blanked. A JSON integer beyond float range raised
+  `OverflowError` past the `except ValueError`; it now drops only that pool.
+  `stablecoin` used `bool()`, so the string `"false"` counted as a stablecoin.
+- `quality.finite_number` returns `None` instead of raising `OverflowError`
+  for out-of-range JSON integers.
+- Verified: `tests/test_edge_cases.py` (all 8 fail on the old code); full
+  suite 54 passed; ruff 0.15.8 + 0.16.9.
+
 ## Done in this pass (pass 3)
 
 - `filter_pools`/`detect_opportunities`/`detect_stablecoin_pools` use `quality.finite_number`:

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import config
+from . import quality
 
 
 def _load_shared():
@@ -115,11 +116,39 @@ def quote_records_from_api(
     event_time: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Normalize Yahoo quote dicts into Bronze-ready records."""
+    records, _ = quote_records_with_report(quotes, event_time=event_time)
+    return records
+
+
+def _optional_number(value: Any) -> Any:
+    """Keep finite numbers (and blanks); blank NaN/inf/non-numeric values."""
+    if value in ("", None):
+        return ""
+    return value if quality.finite_number(value) is not None else ""
+
+
+def quote_records_with_report(
+    quotes: list[dict[str, Any]],
+    *,
+    event_time: Optional[str] = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Normalize Yahoo quotes and report rejected rows.
+
+    A quote is rejected when it has no symbol, when its price is missing,
+    non-numeric, NaN/inf or not positive, or when its symbol repeats. NaN/inf
+    in ``prev_close``/``change``/``change_pct`` are blanked.
+    """
     received = event_time or utc_now_iso()
     records: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
     for q in quotes:
         symbol = str(q.get("symbol", "")).strip().upper()
         if not symbol:
+            rejected.append({"id": "", "reason": "missing_symbol"})
+            continue
+        price = quality.finite_number(q.get("price"))
+        if price is None or price <= 0:
+            rejected.append({"id": symbol, "reason": "invalid_price"})
             continue
         ts = str(q.get("timestamp") or "").strip()
         # Prefer market timestamp when parseable; else ingest time.
@@ -137,16 +166,18 @@ def quote_records_from_api(
                 "id": symbol,
                 "symbol": symbol,
                 "price": q.get("price", ""),
-                "prev_close": q.get("prev_close", ""),
-                "change": q.get("change", ""),
-                "change_pct": q.get("change_pct", ""),
+                "prev_close": _optional_number(q.get("prev_close", "")),
+                "change": _optional_number(q.get("change", "")),
+                "change_pct": _optional_number(q.get("change_pct", "")),
                 "currency": q.get("currency", ""),
                 "exchange": q.get("exchange", ""),
                 "timestamp": ts,
                 "event_time": row_event,
             }
         )
-    return records
+    records, duplicates = quality.dedupe_by_key(records)
+    rejected.extend({"id": r["id"], "reason": "duplicate_id"} for r in duplicates)
+    return records, rejected
 
 
 def ingest_to_lake(

@@ -1,6 +1,6 @@
 # Upgrade plan — book-stock-data
 
-Score: 7/10 -> 8/10 — lake tests now run standalone in CI via the pinned `[lake]` extra; remaining gaps are provider-parser fixtures and packaging polish.
+Score: 8/10 -> 8.5/10 — quotes with NaN/inf/non-positive prices or duplicate symbols are rejected before Bronze/CSV, market time is UTC, projections are atomic; remaining gaps are packaging polish.
 
 ## Backlog
 
@@ -10,9 +10,25 @@ Score: 7/10 -> 8/10 — lake tests now run standalone in CI via the pinned `[lak
   the other book-*-data repos (same SHA everywhere).
 - P2: Add a `[project.optional-dependencies] dev` extra and a `[build-system]` table so
   `pip install -e ".[dev]"` is the single documented setup.
-- P1: Add a test for market-closed/stale timestamps in the latest-price selection.
+- P2: Surface the per-run `rejected_by_reason` counts in `/v1/metadata`.
 
-## Done in this pass (pass 2)
+## Done in this pass (pass 3)
+
+- New `quality` module; `lake.quote_records_with_report` rejects blank symbols,
+  missing/non-numeric/NaN/inf/non-positive prices and duplicate symbols, and blanks
+  non-finite optional numbers; `ingest.clean_quotes` keeps CSV in step with Bronze.
+- `ingest.quote_from_chart` (pure, tested) replaces inline parsing: no crash on a
+  `None` price or bad previous close, and `regularMarketTime` is now UTC (was local time
+  labelled UTC in Bronze `event_time`).
+- Stale/market-closed test: an older market time does not replace a newer price in the
+  latest selection, and the snapshot reports `stale`.
+- New `fsutil` module: price CSV replaced atomically, history appended via atomic rewrite.
+- `fetch_quotes_raw` uses timezone-aware `datetime.now(timezone.utc)` (was deprecated `utcnow()`).
+- CLI validation for `--symbols` and `--alert-threshold`; README Quick start uses `[lake]`.
+- Verified: `pytest -q -rs` 50 passed, 0 skipped (was 40) with the `[lake]` venv; ruff
+  0.15.8 and 0.16.9 clean.
+
+## Done in pass 2
 
 - Added a `[lake]` extra pinning `solo-empire-data-lake` at `68fb5a9` (plus pyarrow/duckdb); CI
   installs `-e ".[lake]"`, asserts `data_lake` imports, and lake tests now run instead of skipping.

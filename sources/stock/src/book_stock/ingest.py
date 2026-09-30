@@ -21,8 +21,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -56,6 +57,8 @@ try:
     )
     from .store import seed_fixtures
     from . import lake as _lake
+    from .fsutil import atomic_append_csv, atomic_write_csv
+    from .quality import finite_number, summarize_rejections
 except ImportError:  # pragma: no cover
     _dp_config = None
     _lake = None
@@ -111,21 +114,40 @@ def fetch_quote_raw(symbol: str) -> tuple[bytes, dict]:
     resp = httpx.get(url, params=params, headers=headers, timeout=15)
     resp.raise_for_status()
     raw = getattr(resp, "content", None) or json.dumps(resp.json()).encode("utf-8")
-    data = resp.json()
-    result = data.get("chart", {}).get("result", [])
-    if not result:
-        return raw, {}
-    meta = result[0].get("meta", {})
-    price = meta.get("regularMarketPrice", 0)
-    prev_close = meta.get("chartPreviousClose", meta.get("previousClose", 0))
+    return raw, quote_from_chart(symbol, resp.json())
+
+
+def quote_from_chart(symbol: str, data: Any) -> dict:
+    """Normalize one Yahoo v8 chart payload; ``{}`` when it has no usable price.
+
+    ``regularMarketTime`` is epoch seconds and is rendered in UTC (the lake
+    normalizer treats ``timestamp`` as UTC). A missing, non-numeric, NaN/inf
+    or non-positive price yields ``{}``; an unusable previous close yields a
+    zero change instead of a crash or a NaN.
+    """
+    chart = data.get("chart") if isinstance(data, dict) else None
+    result = (chart or {}).get("result") or []
+    if not isinstance(result, list) or not result or not isinstance(result[0], dict):
+        return {}
+    meta = result[0].get("meta") or {}
+    price = finite_number(meta.get("regularMarketPrice"))
+    if price is None or price <= 0:
+        return {}
+    prev_close = finite_number(meta.get("chartPreviousClose", meta.get("previousClose")))
+    if prev_close is None or prev_close <= 0:
+        prev_close = 0
     change = price - prev_close if prev_close else 0
     change_pct = (change / prev_close * 100) if prev_close else 0
     ts = ""
-    if meta.get("regularMarketTime"):
-        ts = datetime.fromtimestamp(meta.get("regularMarketTime", 0)).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-    quote = {
+    market_time = finite_number(meta.get("regularMarketTime"))
+    if market_time:
+        try:
+            ts = datetime.fromtimestamp(market_time, tz=timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        except (OverflowError, OSError, ValueError):
+            ts = ""
+    return {
         "symbol": symbol,
         "price": price,
         "prev_close": prev_close,
@@ -135,7 +157,6 @@ def fetch_quote_raw(symbol: str) -> tuple[bytes, dict]:
         "exchange": meta.get("exchangeName", ""),
         "timestamp": ts,
     }
-    return raw, quote
 
 
 def fetch_quotes_raw(symbols: list[str]) -> tuple[bytes, list[dict], dict[str, bytes]]:
@@ -153,7 +174,7 @@ def fetch_quotes_raw(symbols: list[str]) -> tuple[bytes, list[dict], dict[str, b
     # Landing payload preserves exact response bodies per symbol (UTF-8 text).
     landing_obj = {
         "provider": "yahoo_public",
-        "fetched_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "symbols": list(symbols),
         "responses": {
             sym: raw.decode("utf-8", errors="replace") for sym, raw in raw_by_symbol.items()
@@ -190,11 +211,7 @@ def project_prices_csv(quotes: list[dict], output_dir: Path) -> Path:
         "scraped_at",
     ]
     scraped = _projection_timestamp()
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for q in quotes:
-            writer.writerow({**q, "scraped_at": scraped})
+    atomic_write_csv(filepath, fieldnames, ({**q, "scraped_at": scraped} for q in quotes))
     print(f"  Projected {len(quotes)} quotes → {filepath}")
     return filepath
 
@@ -214,13 +231,7 @@ def project_history_csv(quotes: list[dict], output_dir: Path) -> Path:
         "scraped_at",
     ]
     scraped = _projection_timestamp()
-    file_exists = filepath.exists()
-    with open(filepath, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        if not file_exists:
-            writer.writeheader()
-        for q in quotes:
-            writer.writerow({**q, "scraped_at": scraped})
+    atomic_append_csv(filepath, fieldnames, ({**q, "scraped_at": scraped} for q in quotes))
     print(f"  Projected +{len(quotes)} history rows → {filepath}")
     return filepath
 
@@ -332,6 +343,23 @@ def _lake_ingest_history(
     return result
 
 
+def clean_quotes(quotes: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Keep quotes that the lake normalizer accepts, so CSV and Bronze agree."""
+    if _lake is None:
+        return list(quotes), []
+    records, rejected = _lake.quote_records_with_report(
+        quotes, event_time="1970-01-01T00:00:00Z"  # timestamp unused here
+    )
+    accepted = {r["id"] for r in records}
+    kept: list[dict] = []
+    for q in quotes:
+        symbol = str(q.get("symbol", "")).strip().upper()
+        if symbol in accepted:
+            accepted.discard(symbol)
+            kept.append(q)
+    return kept, rejected
+
+
 def run_live_ingest(
     *,
     symbols: list[str],
@@ -348,8 +376,11 @@ def run_live_ingest(
     elif _lake is not None:
         print(f"  Data lake: {_lake.default_data_lake_uri()}")
 
-    landing_bytes, quotes, _bodies = fetch_quotes_raw(symbols)
+    landing_bytes, fetched, _bodies = fetch_quotes_raw(symbols)
+    quotes, rejected = clean_quotes(fetched)
     print(f"  Got {len(quotes)} quotes")
+    if rejected:
+        print(f"  Quality: dropped {len(rejected)} quotes {summarize_rejections(rejected)}")
     if not quotes:
         raise RuntimeError("No quotes fetched. Check network/symbols.")
 
@@ -440,7 +471,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+    symbols = list(
+        dict.fromkeys(s.strip().upper() for s in args.symbols.split(",") if s.strip())
+    )
+    if not symbols:
+        parser.error("--symbols must name at least one symbol")
+    if not math.isfinite(args.alert_threshold) or args.alert_threshold < 0:
+        parser.error("--alert-threshold must be a finite, non-negative number")
     output_dir = Path(args.output_dir)
 
     if getattr(args, "fixture", False) or getattr(args, "dry_run", False):

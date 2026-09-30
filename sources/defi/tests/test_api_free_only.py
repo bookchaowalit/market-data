@@ -182,6 +182,7 @@ class StoreLakeTests(unittest.TestCase):
                 self.assertIsNone(get_record("no-such-pool"))
 
 
+@unittest.skipUnless(_lake_deps_available(), "pyarrow/duckdb + monorepo data_lake required")
 class CsvProjectionOnlyTests(unittest.TestCase):
     def test_csv_projection_helper(self):
         with tempfile.TemporaryDirectory() as tmp:

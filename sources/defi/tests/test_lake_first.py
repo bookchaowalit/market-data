@@ -41,6 +41,11 @@ SAMPLE_POOLS = [
 ]
 
 
+
+def _shared_adapter_available() -> bool:
+    return lake.find_solo_empire_root() is not None
+
+
 class IdentityAndDedupeTests(unittest.TestCase):
     def test_stable_pool_id_prefers_native(self):
         pid = lake.stable_pool_id({"pool": "abc-123", "chain": "Ethereum"})
@@ -57,6 +62,7 @@ class IdentityAndDedupeTests(unittest.TestCase):
         )
         self.assertEqual(pid, again)
 
+    @unittest.skipUnless(_shared_adapter_available(), "shared data_lake adapter not found")
     def test_dedupe_same_pool_in_batch(self):
         pools = [
             {**SAMPLE_POOLS[0], "apy": 5.0},
@@ -74,6 +80,7 @@ class IdentityAndDedupeTests(unittest.TestCase):
             self.assertIn("event_time", r)
 
 
+@unittest.skipUnless(_shared_adapter_available(), "shared data_lake adapter not found")
 class LakeFirstOrderingTests(unittest.TestCase):
     def test_csv_not_written_when_lake_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -97,6 +104,7 @@ class LakeFirstOrderingTests(unittest.TestCase):
                                 chains=["Ethereum"],
                                 min_apy=0,
                                 output_dir=out,
+                                data_lake_uri=str(out / "lake"),
                                 write_history=False,
                                 project_csv=True,
                             )
@@ -138,6 +146,7 @@ class LakeFirstOrderingTests(unittest.TestCase):
                                     chains=["Ethereum"],
                                     min_apy=0,
                                     output_dir=out,
+                                    data_lake_uri=str(out / "lake"),
                                     write_history=False,
                                     project_csv=True,
                                 )

@@ -91,7 +91,10 @@ default `LAKE_READ_MODE=parquet` remains unchanged.
 
 ```bash
 pip install -e .
-pip install -r <solo-empire>/infra/requirements-data-lake.txt
+# Lake writes need the shared data-lake runtime: the [lake] extra installs the
+# pinned solo-empire-data-lake (plus pyarrow/duckdb); inside Solo Empire the
+# parent checkout's infra/scripts/data_lake is used instead
+pip install -e ".[lake]"
 
 python -m book_defi.ingest --fixture
 python -m book_defi.ingest --chains Ethereum,Arbitrum --min-apy 5 \
@@ -117,6 +120,18 @@ Lake failure exits non-zero and does **not** update CSV.
 |---|---|
 | `defillama_public` | free |
 | `defillama_pro` | blocked |
+
+## Data quality
+
+- `filter_pools` excludes pools whose APY or TVL is `NaN`/`inf`/non-numeric
+  (NaN compares false against every bound, so it used to pass the filter),
+  plus the existing APY window (`--min-apy`..1000) and TVL >= $100k rule.
+- Before Bronze (`lake.yield_records_from_pools`), non-finite `apy`,
+  `apy_base`, `apy_reward` and non-finite or negative `tvl_usd` are blanked;
+  `null` stays `null`. Pool ids stay unique per batch (last occurrence wins).
+- `--min-apy` must be finite and >= 0 (exit 2); `--chains`/`--categories` are
+  trimmed and de-duplicated (chain names stay case-sensitive).
+- CSV projections are written atomically (temp file + `os.replace`).
 
 ## Tests
 

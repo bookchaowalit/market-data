@@ -1,6 +1,6 @@
 # Upgrade plan — book-defi-data
 
-Score: 7/10 -> 8/10 — lake tests now run standalone in CI via the pinned `[lake]` extra; remaining gaps are provider-parser fixtures and packaging polish.
+Score: 8/10 -> 8.5/10 — NaN/inf/non-numeric APY or TVL no longer slips through the pool filter, bad metrics are blanked before Bronze, projections are atomic and CLI input is validated; remaining gaps are packaging polish.
 
 ## Backlog
 
@@ -10,8 +10,24 @@ Score: 7/10 -> 8/10 — lake tests now run standalone in CI via the pinned `[lak
   the other book-*-data repos (same SHA everywhere).
 - P2: Add a `[project.optional-dependencies] dev` extra and a `[build-system]` table so
   `pip install -e ".[dev]"` is the single documented setup.
+- P1: Coerce numeric-string `apy`/`tvlUsd` to floats in `filter_pools` output so console
+  formatting (`:.1f`) cannot raise on a string value.
+- P2: Record how many pools each filter rule dropped in the landing metadata.
 
-## Done in this pass (pass 2)
+## Done in this pass (pass 3)
+
+- `filter_pools`/`detect_opportunities`/`detect_stablecoin_pools` use `quality.finite_number`:
+  NaN/inf/non-numeric APY or TVL is excluded (NaN previously passed every bound), and a
+  `None` symbol no longer crashes stablecoin detection.
+- `lake.yield_records_from_pools` blanks non-finite metrics and negative TVL before Bronze.
+- New `fsutil` module: yields CSV replaced atomically, history appended via atomic rewrite;
+  the projection log now counts written (de-duplicated) rows.
+- CLI: `--min-apy` must be finite and >= 0; chain/category lists de-duplicated.
+- README Quick start uses `pip install -e ".[lake]"`; new "Data quality" section.
+- Verified: `pytest -q -rs` 45 passed, 0 skipped (was 35) with the `[lake]` venv; ruff
+  0.15.8 and 0.16.9 clean.
+
+## Done in pass 2
 
 - Added a `[lake]` extra pinning `solo-empire-data-lake` at `68fb5a9` (plus pyarrow/duckdb); CI
   installs `-e ".[lake]"`, asserts `data_lake` imports, and lake tests now run instead of skipping.

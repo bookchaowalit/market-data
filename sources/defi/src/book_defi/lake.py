@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import config
+from . import quality
 
 
 def _load_shared():
@@ -156,6 +157,19 @@ def stable_pool_id(pool: dict[str, Any]) -> str:
     return f"hash:{chain}:{project}:{digest}"
 
 
+def _metric(value: Any, *, non_negative: bool = False) -> Any:
+    """Keep finite metric values (and ``None``); blank NaN/inf/non-numeric ones.
+
+    With ``non_negative`` a negative value (e.g. TVL) is blanked too.
+    """
+    if value is None or value == "":
+        return value
+    number = quality.finite_number(value)
+    if number is None or (non_negative and number < 0):
+        return ""
+    return value
+
+
 def yield_records_from_pools(
     pools: list[dict[str, Any]],
     *,
@@ -213,10 +227,10 @@ def yield_records_from_pools(
             "protocol": project,
             "project": project,
             "symbol": symbol,
-            "tvl_usd": pool.get("tvlUsd", pool.get("tvl_usd", 0)),
-            "apy": pool.get("apy", 0),
-            "apy_base": pool.get("apyBase", pool.get("apy_base", 0)),
-            "apy_reward": pool.get("apyReward", pool.get("apy_reward", 0)),
+            "tvl_usd": _metric(pool.get("tvlUsd", pool.get("tvl_usd", 0)), non_negative=True),
+            "apy": _metric(pool.get("apy", 0)),
+            "apy_base": _metric(pool.get("apyBase", pool.get("apy_base", 0))),
+            "apy_reward": _metric(pool.get("apyReward", pool.get("apy_reward", 0))),
             "reward_tokens": reward_str,
             "category": pool.get("category", ""),
             "url": pool.get("url", ""),

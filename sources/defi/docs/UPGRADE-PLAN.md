@@ -28,6 +28,7 @@ Score: 8/10 -> 8.5/10 — NaN/inf/non-numeric APY or TVL no longer slips through
   for out-of-range JSON integers.
 - Verified: `tests/test_edge_cases.py` (all 8 fail on the old code); full
   suite 54 passed; ruff 0.15.8 + 0.16.9.
+- Bumped the `[lake]` pin `68fb5a9` -> `4c24c66` (NDJSON/BOM/U+2028/double-decode fixes); 54 passed with the new package; ruff 0.15.8 + 0.16.9 clean.
 
 ## Done in this pass (pass 3)
 

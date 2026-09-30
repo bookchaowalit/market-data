@@ -9,7 +9,6 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import unquote
 
 from . import config
 from . import lake

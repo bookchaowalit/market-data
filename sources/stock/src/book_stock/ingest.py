@@ -129,15 +129,22 @@ def quote_from_chart(symbol: str, data: Any) -> dict:
     result = (chart or {}).get("result") or []
     if not isinstance(result, list) or not result or not isinstance(result[0], dict):
         return {}
-    meta = result[0].get("meta") or {}
+    meta = result[0].get("meta")
+    if not isinstance(meta, dict):
+        return {}
     price = finite_number(meta.get("regularMarketPrice"))
     if price is None or price <= 0:
         return {}
-    prev_close = finite_number(meta.get("chartPreviousClose", meta.get("previousClose")))
+    # A present-but-null chartPreviousClose used to hide previousClose.
+    prev_close = finite_number(meta.get("chartPreviousClose"))
+    if prev_close is None or prev_close <= 0:
+        prev_close = finite_number(meta.get("previousClose"))
     if prev_close is None or prev_close <= 0:
         prev_close = 0
     change = price - prev_close if prev_close else 0
     change_pct = (change / prev_close * 100) if prev_close else 0
+    if not math.isfinite(change_pct):  # e.g. a 1e-300 previous close
+        change, change_pct = 0, 0
     ts = ""
     market_time = finite_number(meta.get("regularMarketTime"))
     if market_time:

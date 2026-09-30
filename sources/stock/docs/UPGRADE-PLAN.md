@@ -12,6 +12,19 @@ Score: 8/10 -> 8.5/10 — quotes with NaN/inf/non-positive prices or duplicate s
   `pip install -e ".[dev]"` is the single documented setup.
 - P2: Surface the per-run `rejected_by_reason` counts in `/v1/metadata`.
 
+## Done in this pass (pass 4: edge cases)
+
+- `config.env_bool` returned False for anything but a true-ish word, so
+  `FREE_ONLY=` (blank line in .env/compose) or a typo silently disabled the
+  free-only guard; blank/unrecognised values now keep the safe default.
+- `ingest.quote_from_chart`: a present-but-null `chartPreviousClose` hid
+  `previousClose` (change reported as 0); a JSON integer price beyond float
+  range raised `OverflowError` (`quality.finite_number` now returns `None`);
+  a tiny previous close produced an infinite `change_pct`; a non-dict `meta`
+  crashed. All now degrade to a usable quote or `{}`.
+- Verified: `tests/test_edge_cases.py` (all 6 behaviours fail on the old
+  code); full suite 60 passed; ruff 0.15.8 + 0.16.9.
+
 ## Done in this pass (pass 3)
 
 - New `quality` module; `lake.quote_records_with_report` rejects blank symbols,

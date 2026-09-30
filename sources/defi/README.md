@@ -121,5 +121,13 @@ Lake failure exits non-zero and does **not** update CSV.
 ## Tests
 
 ```bash
-PYTHONPATH=src /path/to/solo-empire/.venv/bin/python -m unittest discover -s tests -v
+# Standalone (what CI runs): lake integration tests skip without the adapter
+python -m pip install -e . pytest ruff
+ruff check .
+python -m pytest -q -rs
+
+# Full lake coverage: point at a Solo Empire checkout that has
+# infra/scripts/data_lake (sibling clones work; walking parents is the default)
+python -m pip install pyarrow duckdb
+SOLO_EMPIRE_ROOT=/path/to/solo-empire python -m pytest -q
 ```

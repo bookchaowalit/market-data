@@ -13,7 +13,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from scrape_defi_yields import DeFiYieldScraper
+from scrape_defi_yields import DeFiYieldScraper  # noqa: E402
 
 CHAINS = ["Ethereum", "Arbitrum", "Optimism", "Polygon", "Base"]
 

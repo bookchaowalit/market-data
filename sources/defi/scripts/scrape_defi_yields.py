@@ -95,16 +95,39 @@ def normalize_chains(values: Iterable[str] | str | None) -> list[str]:
 def _finite_number(value: Any, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{field} must be numeric")
-    number = float(value)
+    try:
+        number = float(value)
+    except OverflowError:  # an int beyond float range (JSON allows 1e400 digits)
+        raise ValueError(f"{field} must be finite") from None
     if not math.isfinite(number):
         raise ValueError(f"{field} must be finite")
     return number
 
 
 def _optional_number(value: Any, field: str) -> float | str:
+    """Blank for a missing *or invalid* optional metric.
+
+    Raising here aborted the whole capture because one pool carried a NaN or
+    string ``apyBase``; required fields are validated separately.
+    """
     if value is None or value == "":
         return ""
-    return _finite_number(value, field)
+    try:
+        return _finite_number(value, field)
+    except ValueError:
+        return ""
+
+
+def _strict_bool(value: Any) -> bool:
+    """True only for JSON ``true`` (or an explicit "true"/"1" string).
+
+    ``bool("false")`` is True, which marked string-typed flags as stablecoins.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes"}
+    return False
 
 
 def _provider_datetime(value: str) -> datetime:
@@ -218,7 +241,7 @@ def parse_payload(
                 "apy_1d": _optional_number(item.get("apyPct1D"), "apyPct1D"),
                 "apy_7d": _optional_number(item.get("apyPct7D"), "apyPct7D"),
                 "apy_30d": _optional_number(item.get("apyPct30D"), "apyPct30D"),
-                "stablecoin": bool(item.get("stablecoin")),
+                "stablecoin": _strict_bool(item.get("stablecoin")),
                 "il_risk": str(item.get("ilRisk") or ""),
                 "exposure": str(item.get("exposure") or ""),
                 "pool_meta": str(item.get("poolMeta") or ""),

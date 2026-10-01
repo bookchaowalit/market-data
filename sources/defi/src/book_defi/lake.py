@@ -9,6 +9,7 @@ Extra guarantees vs FX/stock:
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import re
 import sys
 from datetime import datetime, timezone
@@ -16,11 +17,16 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import config
+from . import quality
 
 
 def _load_shared():
     cur = config.PROJECT_ROOT.resolve()
-    for parent in [cur, *cur.parents]:
+    candidates = [cur, *cur.parents]
+    if config.SOLO_EMPIRE_ROOT:
+        # Explicit parent checkout (e.g. sibling clone) wins over the walk.
+        candidates.insert(0, Path(config.SOLO_EMPIRE_ROOT).expanduser().resolve())
+    for parent in candidates:
         scripts = parent / "infra" / "scripts"
         if (scripts / "data_lake" / "product_adapter.py").is_file():
             if str(scripts) not in sys.path:
@@ -74,14 +80,38 @@ def _contract():
 
 
 def utc_now_iso() -> str:
-    return _pa_mod().utc_now_iso()
+    """UTC now as ``YYYY-MM-DDTHH:MM:SSZ`` (same format as the shared adapter).
+
+    Kept local so projections and identity helpers work without the lake runtime.
+    """
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def find_solo_empire_root(start: Optional[Path] = None) -> Optional[Path]:
-    return _pa_mod().find_solo_empire_root(
+    """Return the Solo Empire root, or ``None`` when the shared adapter is absent."""
+    try:
+        pa = _pa_mod()
+    except ImportError:
+        return None
+    return pa.find_solo_empire_root(
         start or config.PROJECT_ROOT,
         solo_empire_root=config.SOLO_EMPIRE_ROOT,
     )
+
+
+def shared_runtime_available() -> bool:
+    """Return True when the shared ``data_lake`` runtime can be imported.
+
+    Covers the installed ``[lake]`` extra (``solo-empire-data-lake``) and the
+    ``SOLO_EMPIRE_ROOT`` / parent-checkout fallback used inside Solo Empire.
+    """
+    if importlib.util.find_spec("data_lake") is not None:
+        return True
+    try:
+        _pa_mod()
+    except ImportError:
+        return False
+    return True
 
 
 def default_data_lake_uri(solo_root: Optional[Path] = None) -> str:
@@ -125,6 +155,19 @@ def stable_pool_id(pool: dict[str, Any]) -> str:
     seed = f"{chain}|{project}|{symbol}|{under}"
     digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
     return f"hash:{chain}:{project}:{digest}"
+
+
+def _metric(value: Any, *, non_negative: bool = False) -> Any:
+    """Keep finite metric values (and ``None``); blank NaN/inf/non-numeric ones.
+
+    With ``non_negative`` a negative value (e.g. TVL) is blanked too.
+    """
+    if value is None or value == "":
+        return value
+    number = quality.finite_number(value)
+    if number is None or (non_negative and number < 0):
+        return ""
+    return value
 
 
 def yield_records_from_pools(
@@ -184,10 +227,10 @@ def yield_records_from_pools(
             "protocol": project,
             "project": project,
             "symbol": symbol,
-            "tvl_usd": pool.get("tvlUsd", pool.get("tvl_usd", 0)),
-            "apy": pool.get("apy", 0),
-            "apy_base": pool.get("apyBase", pool.get("apy_base", 0)),
-            "apy_reward": pool.get("apyReward", pool.get("apy_reward", 0)),
+            "tvl_usd": _metric(pool.get("tvlUsd", pool.get("tvl_usd", 0)), non_negative=True),
+            "apy": _metric(pool.get("apy", 0)),
+            "apy_base": _metric(pool.get("apyBase", pool.get("apy_base", 0))),
+            "apy_reward": _metric(pool.get("apyReward", pool.get("apy_reward", 0))),
             "reward_tokens": reward_str,
             "category": pool.get("category", ""),
             "url": pool.get("url", ""),

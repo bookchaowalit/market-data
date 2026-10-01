@@ -78,10 +78,13 @@ def _lake_deps_available() -> bool:
         import pyarrow  # noqa: F401
     except ImportError:
         return False
-    return lake.find_solo_empire_root() is not None
+    return lake.shared_runtime_available()
 
 
-@unittest.skipUnless(_lake_deps_available(), "pyarrow/duckdb + monorepo data_lake required")
+@unittest.skipUnless(
+    _lake_deps_available(),
+    "pyarrow/duckdb + shared data_lake runtime required (pip install -e .[lake])",
+)
 class StoreLakeTests(unittest.TestCase):
     def test_bronze_records_load(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -182,6 +185,10 @@ class StoreLakeTests(unittest.TestCase):
                 self.assertIsNone(get_record("no-such-pool"))
 
 
+@unittest.skipUnless(
+    _lake_deps_available(),
+    "pyarrow/duckdb + shared data_lake runtime required (pip install -e .[lake])",
+)
 class CsvProjectionOnlyTests(unittest.TestCase):
     def test_csv_projection_helper(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -232,7 +239,10 @@ class HttpClientTests(unittest.TestCase):
             self.assertEqual(ctx.exception.kind, "timeout")
 
 
-@unittest.skipUnless(_lake_deps_available(), "pyarrow/duckdb + monorepo data_lake required")
+@unittest.skipUnless(
+    _lake_deps_available(),
+    "pyarrow/duckdb + shared data_lake runtime required (pip install -e .[lake])",
+)
 class ApiContractTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

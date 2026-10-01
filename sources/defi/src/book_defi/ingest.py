@@ -17,8 +17,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -52,6 +53,8 @@ try:
     )
     from .store import seed_fixtures
     from . import lake as _lake
+    from .fsutil import atomic_append_csv, atomic_write_csv
+    from .quality import finite_number
 except ImportError:  # pragma: no cover
     _dp_config = None
     _lake = None
@@ -109,15 +112,22 @@ def filter_pools(
     min_apy: float,
     categories: list = None,
 ) -> list:
+    """Keep pools on ``chains`` with a finite APY in [min_apy, 1000] and TVL >= $100k.
+
+    NaN/inf/non-numeric APY or TVL values are excluded: NaN compares false
+    against every bound, so without the check it slipped through the filter.
+    """
     filtered = []
     for pool in pools:
+        if not isinstance(pool, dict):
+            continue
         if chains and pool.get("chain", "") not in chains:
             continue
-        apy = pool.get("apy", 0) or 0
-        if apy < min_apy:
+        apy = finite_number(pool.get("apy") or 0)
+        if apy is None or apy < min_apy:
             continue
-        tvl = pool.get("tvlUsd", 0) or 0
-        if tvl < 100000:
+        tvl = finite_number(pool.get("tvlUsd") or 0)
+        if tvl is None or tvl < 100000:
             continue
         if apy > 1000:
             continue
@@ -132,7 +142,7 @@ def filter_pools(
 def detect_stablecoin_pools(pools: list) -> list:
     stable_pools = []
     for pool in pools:
-        symbol = pool.get("symbol", "").upper()
+        symbol = str(pool.get("symbol") or "").upper()
         for sc in STABLECOINS:
             if sc in symbol:
                 apy = pool.get("apy", 0) or 0
@@ -146,8 +156,8 @@ def detect_opportunities(pools: list, prev_pools: dict) -> list:
     opportunities = []
     for pool in pools:
         pool_id = pool.get("pool", "")
-        apy = pool.get("apy", 0) or 0
-        tvl = pool.get("tvlUsd", 0) or 0
+        apy = finite_number(pool.get("apy")) or 0.0
+        tvl = finite_number(pool.get("tvlUsd")) or 0.0
         if pool_id not in prev_pools and apy >= 20 and tvl >= 500000:
             opportunities.append(
                 {
@@ -185,7 +195,9 @@ def load_previous_pools(output_dir: Optional[Path] = None) -> dict:
 
 
 def _projection_timestamp() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # UTC: readers (product_store.parse_ts / _freshness) treat naive stamps as
+    # UTC, so a host-local stamp looked hours fresher (or older) than it was.
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def project_yields_csv(pools: list, output_dir: Path) -> Path:
@@ -212,46 +224,45 @@ def project_yields_csv(pools: list, output_dir: Path) -> Path:
         else []
     )
     # Prefer normalized records for stable pool_id projection.
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        if records:
-            for r in records:
-                writer.writerow(
-                    {
-                        "pool_id": r.get("pool_id", ""),
-                        "chain": r.get("chain", ""),
-                        "project": r.get("project", ""),
-                        "symbol": r.get("symbol", ""),
-                        "tvl_usd": r.get("tvl_usd", 0),
-                        "apy": r.get("apy", 0),
-                        "apy_base": r.get("apy_base", 0),
-                        "apy_reward": r.get("apy_reward", 0),
-                        "reward_tokens": r.get("reward_tokens", ""),
-                        "category": r.get("category", ""),
-                        "url": r.get("url", ""),
-                        "scraped_at": scraped,
-                    }
-                )
-        else:
-            for pool in pools:
-                writer.writerow(
-                    {
-                        "pool_id": pool.get("pool", ""),
-                        "chain": pool.get("chain", ""),
-                        "project": pool.get("project", ""),
-                        "symbol": pool.get("symbol", "")[:30],
-                        "tvl_usd": pool.get("tvlUsd", 0),
-                        "apy": pool.get("apy", 0),
-                        "apy_base": pool.get("apyBase", 0),
-                        "apy_reward": pool.get("apyReward", 0),
-                        "reward_tokens": ",".join(pool.get("rewardTokens", []) or []),
-                        "category": pool.get("category", ""),
-                        "url": pool.get("url", ""),
-                        "scraped_at": scraped,
-                    }
-                )
-    print(f"  Projected {len(pools)} pools → {filepath}")
+    rows: list[dict[str, Any]] = []
+    if records:
+        for r in records:
+            rows.append(
+                {
+                    "pool_id": r.get("pool_id", ""),
+                    "chain": r.get("chain", ""),
+                    "project": r.get("project", ""),
+                    "symbol": r.get("symbol", ""),
+                    "tvl_usd": r.get("tvl_usd", 0),
+                    "apy": r.get("apy", 0),
+                    "apy_base": r.get("apy_base", 0),
+                    "apy_reward": r.get("apy_reward", 0),
+                    "reward_tokens": r.get("reward_tokens", ""),
+                    "category": r.get("category", ""),
+                    "url": r.get("url", ""),
+                    "scraped_at": scraped,
+                }
+            )
+    else:
+        for pool in pools:
+            rows.append(
+                {
+                    "pool_id": pool.get("pool", ""),
+                    "chain": pool.get("chain", ""),
+                    "project": pool.get("project", ""),
+                    "symbol": pool.get("symbol", "")[:30],
+                    "tvl_usd": pool.get("tvlUsd", 0),
+                    "apy": pool.get("apy", 0),
+                    "apy_base": pool.get("apyBase", 0),
+                    "apy_reward": pool.get("apyReward", 0),
+                    "reward_tokens": ",".join(pool.get("rewardTokens", []) or []),
+                    "category": pool.get("category", ""),
+                    "url": pool.get("url", ""),
+                    "scraped_at": scraped,
+                }
+            )
+    atomic_write_csv(filepath, fieldnames, rows)
+    print(f"  Projected {len(rows)} pools → {filepath}")
     return filepath
 
 
@@ -276,44 +287,41 @@ def project_history_csv(pools: list, output_dir: Path) -> Path:
         if _lake is not None
         else []
     )
-    file_exists = filepath.exists()
-    with open(filepath, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        if not file_exists:
-            writer.writeheader()
-        if records:
-            for r in records:
-                writer.writerow(
-                    {
-                        "pool_id": r.get("pool_id", ""),
-                        "chain": r.get("chain", ""),
-                        "project": r.get("project", ""),
-                        "symbol": r.get("symbol", ""),
-                        "tvl_usd": r.get("tvl_usd", 0),
-                        "apy": r.get("apy", 0),
-                        "apy_base": r.get("apy_base", 0),
-                        "apy_reward": r.get("apy_reward", 0),
-                        "category": r.get("category", ""),
-                        "scraped_at": scraped,
-                    }
-                )
-        else:
-            for pool in pools:
-                writer.writerow(
-                    {
-                        "pool_id": pool.get("pool", ""),
-                        "chain": pool.get("chain", ""),
-                        "project": pool.get("project", ""),
-                        "symbol": pool.get("symbol", "")[:30],
-                        "tvl_usd": pool.get("tvlUsd", 0),
-                        "apy": pool.get("apy", 0),
-                        "apy_base": pool.get("apyBase", 0),
-                        "apy_reward": pool.get("apyReward", 0),
-                        "category": pool.get("category", ""),
-                        "scraped_at": scraped,
-                    }
-                )
-    print(f"  Projected +{len(pools)} history rows → {filepath}")
+    rows: list[dict[str, Any]] = []
+    if records:
+        for r in records:
+            rows.append(
+                {
+                    "pool_id": r.get("pool_id", ""),
+                    "chain": r.get("chain", ""),
+                    "project": r.get("project", ""),
+                    "symbol": r.get("symbol", ""),
+                    "tvl_usd": r.get("tvl_usd", 0),
+                    "apy": r.get("apy", 0),
+                    "apy_base": r.get("apy_base", 0),
+                    "apy_reward": r.get("apy_reward", 0),
+                    "category": r.get("category", ""),
+                    "scraped_at": scraped,
+                }
+            )
+    else:
+        for pool in pools:
+            rows.append(
+                {
+                    "pool_id": pool.get("pool", ""),
+                    "chain": pool.get("chain", ""),
+                    "project": pool.get("project", ""),
+                    "symbol": pool.get("symbol", "")[:30],
+                    "tvl_usd": pool.get("tvlUsd", 0),
+                    "apy": pool.get("apy", 0),
+                    "apy_base": pool.get("apyBase", 0),
+                    "apy_reward": pool.get("apyReward", 0),
+                    "category": pool.get("category", ""),
+                    "scraped_at": scraped,
+                }
+            )
+    atomic_append_csv(filepath, fieldnames, rows)
+    print(f"  Projected +{len(rows)} history rows → {filepath}")
     return filepath
 
 
@@ -516,8 +524,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
-    chains = [c.strip() for c in args.chains.split(",") if c.strip()]
-    categories = [c.strip() for c in args.categories.split(",") if c.strip()] or None
+    # Chain names are case-sensitive on DeFiLlama ("Ethereum"), so only trim
+    # and de-duplicate; an empty list means "all chains".
+    chains = list(dict.fromkeys(c.strip() for c in args.chains.split(",") if c.strip()))
+    categories = list(
+        dict.fromkeys(c.strip() for c in args.categories.split(",") if c.strip())
+    ) or None
+    if not math.isfinite(args.min_apy) or args.min_apy < 0:
+        parser.error("--min-apy must be a finite, non-negative number")
     output_dir = Path(args.output_dir)
 
     if getattr(args, "fixture", False) or getattr(args, "dry_run", False):

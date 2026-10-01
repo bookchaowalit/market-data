@@ -111,8 +111,10 @@ contract exists. CSV is never used by the HTTP API.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e .
-# Lake writes need monorepo data-lake runtime
-pip install -r <solo-empire>/infra/requirements-data-lake.txt
+# Lake writes need the shared data-lake runtime: the [lake] extra installs the
+# pinned solo-empire-data-lake (plus pyarrow/duckdb); inside Solo Empire the
+# parent checkout's infra/scripts/data_lake is used instead
+pip install -e ".[lake]"
 
 python -m book_stock.ingest --fixture
 python -m book_stock.ingest --symbols AAPL,MSFT --data-lake-uri /path/to/data/lake
@@ -124,7 +126,7 @@ Environment:
 | Variable | Purpose |
 |---|---|
 | `SOLO_EMPIRE_DATA_LAKE_URI` / `DATA_LAKE_URI` | Lake root |
-| `SOLO_EMPIRE_ROOT` | Monorepo root if not discovered |
+| `SOLO_EMPIRE_ROOT` | Monorepo root if not discovered; also used to locate the shared `data_lake` adapter |
 | `DATA_DIR` | Optional CSV projection dir |
 
 Live ingest exits non-zero on lake failure and does **not** update CSV.
@@ -157,10 +159,38 @@ ALLOW_REFRESH=false
 | `yahoo_public` | free (best-effort; unofficial) |
 | paid market data APIs | blocked |
 
+## Data quality
+
+Before any Bronze or CSV write (`book_stock.quality`, `lake.quote_records_with_report`):
+
+- A quote is dropped when its symbol is blank, its price is missing,
+  non-numeric, `NaN`/`inf` or not positive, or its (upper-cased) symbol
+  repeats; `NaN`/`inf` in `prev_close`/`change`/`change_pct` are blanked. The
+  CSV projection keeps exactly the quotes Bronze accepted.
+- `regularMarketTime` is rendered in UTC (it was host-local time before, yet
+  stored as UTC). A capture with an older market time never replaces a newer
+  price in the latest snapshot, and a market-closed snapshot reports
+  `data_status=stale` once it is older than `STALE_AFTER_HOURS`.
+- `--symbols` is upper-cased/de-duplicated and must be non-empty;
+  `--alert-threshold` must be finite and >= 0 (exit 2 otherwise).
+- CSV projections are written atomically (temp file + `os.replace`).
+
 ## Tests
 
 ```bash
-PYTHONPATH=src /path/to/solo-empire/.venv/bin/python -m unittest discover -s tests -v
+# What CI runs: the [lake] extra installs the pinned solo-empire-data-lake
+# runtime (plus pyarrow/duckdb), so Bronze/Silver lake tests run standalone
+python -m pip install -e ".[lake]" pytest ruff
+ruff check .
+python -m pytest -q -rs
+
+# Contract/policy only: without the extra, lake tests skip with a reason
+python -m pip install -e . pytest
+python -m pytest -q -rs
+
+# Inside Solo Empire: SOLO_EMPIRE_ROOT (or walking parents) makes the parent
+# checkout's infra/scripts/data_lake take precedence over the installed runtime
+SOLO_EMPIRE_ROOT=/path/to/solo-empire python -m pytest -q
 ```
 
 Coverage: contract freeze, free-only policy, lake write ordering, fail-closed,

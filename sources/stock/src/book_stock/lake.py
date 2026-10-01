@@ -1,17 +1,23 @@
 """Lake-first adapter for book-stock-data (shared product_adapter contract)."""
 from __future__ import annotations
 
+import importlib.util
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
 from . import config
+from . import quality
 
 
 def _load_shared():
     cur = config.PROJECT_ROOT.resolve()
-    for parent in [cur, *cur.parents]:
+    candidates = [cur, *cur.parents]
+    if config.SOLO_EMPIRE_ROOT:
+        # Explicit parent checkout (e.g. sibling clone) wins over the walk.
+        candidates.insert(0, Path(config.SOLO_EMPIRE_ROOT).expanduser().resolve())
+    for parent in candidates:
         scripts = parent / "infra" / "scripts"
         if (scripts / "data_lake" / "product_adapter.py").is_file():
             if str(scripts) not in sys.path:
@@ -69,10 +75,30 @@ def utc_now_iso() -> str:
 
 
 def find_solo_empire_root(start: Optional[Path] = None) -> Optional[Path]:
-    return _pa_mod().find_solo_empire_root(
+    """Return the Solo Empire root, or ``None`` when the shared adapter is absent."""
+    try:
+        pa = _pa_mod()
+    except ImportError:
+        return None
+    return pa.find_solo_empire_root(
         start or config.PROJECT_ROOT,
         solo_empire_root=config.SOLO_EMPIRE_ROOT,
     )
+
+
+def shared_runtime_available() -> bool:
+    """Return True when the shared ``data_lake`` runtime can be imported.
+
+    Covers the installed ``[lake]`` extra (``solo-empire-data-lake``) and the
+    ``SOLO_EMPIRE_ROOT`` / parent-checkout fallback used inside Solo Empire.
+    """
+    if importlib.util.find_spec("data_lake") is not None:
+        return True
+    try:
+        _pa_mod()
+    except ImportError:
+        return False
+    return True
 
 
 def default_data_lake_uri(solo_root: Optional[Path] = None) -> str:
@@ -90,11 +116,39 @@ def quote_records_from_api(
     event_time: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Normalize Yahoo quote dicts into Bronze-ready records."""
+    records, _ = quote_records_with_report(quotes, event_time=event_time)
+    return records
+
+
+def _optional_number(value: Any) -> Any:
+    """Keep finite numbers (and blanks); blank NaN/inf/non-numeric values."""
+    if value in ("", None):
+        return ""
+    return value if quality.finite_number(value) is not None else ""
+
+
+def quote_records_with_report(
+    quotes: list[dict[str, Any]],
+    *,
+    event_time: Optional[str] = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Normalize Yahoo quotes and report rejected rows.
+
+    A quote is rejected when it has no symbol, when its price is missing,
+    non-numeric, NaN/inf or not positive, or when its symbol repeats. NaN/inf
+    in ``prev_close``/``change``/``change_pct`` are blanked.
+    """
     received = event_time or utc_now_iso()
     records: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
     for q in quotes:
         symbol = str(q.get("symbol", "")).strip().upper()
         if not symbol:
+            rejected.append({"id": "", "reason": "missing_symbol"})
+            continue
+        price = quality.finite_number(q.get("price"))
+        if price is None or price <= 0:
+            rejected.append({"id": symbol, "reason": "invalid_price"})
             continue
         ts = str(q.get("timestamp") or "").strip()
         # Prefer market timestamp when parseable; else ingest time.
@@ -112,16 +166,18 @@ def quote_records_from_api(
                 "id": symbol,
                 "symbol": symbol,
                 "price": q.get("price", ""),
-                "prev_close": q.get("prev_close", ""),
-                "change": q.get("change", ""),
-                "change_pct": q.get("change_pct", ""),
+                "prev_close": _optional_number(q.get("prev_close", "")),
+                "change": _optional_number(q.get("change", "")),
+                "change_pct": _optional_number(q.get("change_pct", "")),
                 "currency": q.get("currency", ""),
                 "exchange": q.get("exchange", ""),
                 "timestamp": ts,
                 "event_time": row_event,
             }
         )
-    return records
+    records, duplicates = quality.dedupe_by_key(records)
+    rejected.extend({"id": r["id"], "reason": "duplicate_id"} for r in duplicates)
+    return records, rejected
 
 
 def ingest_to_lake(

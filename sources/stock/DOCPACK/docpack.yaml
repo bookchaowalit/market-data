@@ -1,0 +1,8 @@
+system_id: bookchaowalit/book-products/book-stock-data
+prefix: CARD
+brand: "BOOK STOCK DATA"
+subtitle: "ข้อมูลราคาหุ้นแบบ lake-first จาก Yahoo chart endpoint พร้อม API อ่านอย่างเดียว"
+footer: "Book Stock Data — Product Card"
+color: "#2f4b6e"
+audience: internal
+tier: L0

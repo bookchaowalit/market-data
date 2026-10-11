@@ -126,7 +126,7 @@ Environment:
 | Variable | Purpose |
 |---|---|
 | `SOLO_EMPIRE_DATA_LAKE_URI` / `DATA_LAKE_URI` | Lake root |
-| `SOLO_EMPIRE_ROOT` | Monorepo root if not discovered; also used to locate the shared `data_lake` adapter |
+| `SOLO_DATA_LAKE_ROOT` | solo-data-lake checkout used to locate the shared `data_lake` adapter when the `[lake]` extra is not installed |
 | `DATA_DIR` | Optional CSV projection dir |
 
 Live ingest exits non-zero on lake failure and does **not** update CSV.
@@ -188,9 +188,9 @@ python -m pytest -q -rs
 python -m pip install -e . pytest
 python -m pytest -q -rs
 
-# Inside Solo Empire: SOLO_EMPIRE_ROOT (or walking parents) makes the parent
-# checkout's infra/scripts/data_lake take precedence over the installed runtime
-SOLO_EMPIRE_ROOT=/path/to/solo-empire python -m pytest -q
+# Without the [lake] extra: SOLO_DATA_LAKE_ROOT points at a solo-data-lake
+# checkout whose infra/scripts/data_lake supplies the shared runtime
+SOLO_DATA_LAKE_ROOT=/path/to/solo-data-lake python -m pytest -q
 ```
 
 Coverage: contract freeze, free-only policy, lake write ordering, fail-closed,

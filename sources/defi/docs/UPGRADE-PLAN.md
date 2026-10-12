@@ -62,7 +62,7 @@ Score: 8/10 -> 8.5/10 — NaN/inf/non-numeric APY or TVL no longer slips through
 - `lake.utc_now_iso` is local (same format as the adapter), so CSV projection works without the lake runtime.
 - `SharedAdapterTests` now checks the adapter via the installed runtime instead of skipping outside the parent.
 - Verified: fresh venv `pip install -e ".[lake]"` from the pinned tarball — 0 skipped of 36 with `[lake]` (was 19 of 35 skipped);
-  also against `pip install /home/user/solo-empire-data-lake`, with `SOLO_DATA_LAKE_ROOT=<solo-data-lake>`
+  also against `pip install /home/user/solo-empire-data-lake`, with `SOLO_DATA_LAKE_ROOT=<data-lake>`
   (parent adapter wins), and without the extra (lake tests skip with a reason). ruff 0.15 and 0.16 clean.
 
 ## Done in pass 1
@@ -76,6 +76,6 @@ Score: 8/10 -> 8.5/10 — NaN/inf/non-numeric APY or TVL no longer slips through
 - Fixed the remaining default-rule ruff findings; `.gitignore` covers egg-info/ruff cache.
 - README "Tests" section documents the standalone and full-lake commands.
 - Verified: clean venv with `pip install -e . pytest` (CI shape) and a full run with
-  `SOLO_DATA_LAKE_ROOT=<solo-data-lake>` + pyarrow/duckdb (all lake tests execute and pass).
+  `SOLO_DATA_LAKE_ROOT=<data-lake>` + pyarrow/duckdb (all lake tests execute and pass).
 - Tests that need the adapter (`utc_now_iso`, envelope, CSV projection helper, ordering)
   now skip cleanly without it; ordering tests pass an explicit temporary lake URI.

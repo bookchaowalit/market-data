@@ -16,7 +16,19 @@ permissions:
 
 jobs:
   test:
+    name: ${{ matrix.source }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {source: crypto, package: book_crypto, cli: book-crypto-data}
+          - {source: stock, package: book_stock, cli: book-stock-data}
+          - {source: fx, package: book_fx, cli: book-fx-data}
+          - {source: defi, package: book_defi, cli: book-defi-data}
+    defaults:
+      run:
+        working-directory: sources/${{ matrix.source }}
     env:
       FREE_ONLY: "true"
       ALLOW_PAID_PROVIDERS: "false"
@@ -27,6 +39,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: sources/${{ matrix.source }}/pyproject.toml
       - name: Install package with the pinned shared lake runtime
         run: python -m pip install -e ".[lake]" pytest ruff
       - name: Check shared lake runtime is importable
@@ -38,5 +51,5 @@ jobs:
       - name: Tests (standalone, including lake integration)
         run: python -m pytest -q -rs
       - run: python -m compileall -q src
-      - run: python -m book_defi.ingest --help
-      - run: book-defi-data --help
+      - run: python -m ${{ matrix.package }}.ingest --help
+      - run: ${{ matrix.cli }} --help

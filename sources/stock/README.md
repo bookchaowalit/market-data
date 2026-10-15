@@ -2,6 +2,9 @@
 
 Stock market data product (Yahoo public chart endpoint, best-effort).
 
+> **Interim scope (2026-10-15):** synthetic offline fixtures only. See
+> [Yahoo chart endpoint terms review](#yahoo-chart-endpoint-terms-review--2026-10-15).
+
 Migration status: **lake-first** using the shared Solo Empire
 `data_lake.product_adapter` contract (same path as `book-crypto-data`).
 
@@ -117,7 +120,8 @@ pip install -e .
 pip install -e ".[lake]"
 
 python -m book_stock.ingest --fixture
-python -m book_stock.ingest --symbols AAPL,MSFT --data-lake-uri /path/to/data/lake
+# Live Yahoo ingest is outside the interim fixture-only scope (2026-10-15):
+# python -m book_stock.ingest --symbols AAPL,MSFT --data-lake-uri /path/to/data/lake
 python -m book_stock.api --host 127.0.0.1 --port 8102
 ```
 
@@ -174,7 +178,10 @@ Official indexed terms were reviewed on 2026-10-15; direct retrieval failed.
 fixtures only** until an operator/provider-rights decision is recorded. This
 records no collection approval; do not run or schedule live Yahoo collection
 under this scope. The coverage registry records stocks as `conditional`
-(`interim_scope: fixture_only`), not `bounded`.
+(`interim_scope: fixture_only`), not `bounded`. This is policy, not yet
+enforced: `setup_market_cron.sh` still schedules stocks and the lake
+scheduler gate reads an older registry copy; changing them is a separate
+runtime follow-up.
 
 Sources: [Yahoo regional terms](https://legal.yahoo.com/sg/en/yahoo/terms/otos/index.html),
 [Yahoo regional selector](https://legal.yahoo.com/index.html).

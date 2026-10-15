@@ -179,7 +179,7 @@ fixtures only** until an operator/provider-rights decision is recorded. This
 records no collection approval; do not run or schedule live Yahoo collection
 under this scope. The coverage registry records stocks as `conditional`
 (`interim_scope: fixture_only`), not `bounded`. This is policy, not yet
-enforced: `setup_market_cron.sh` still schedules stocks and the lake
+enforced: data-lake-pipelines `setup_market_cron.sh` still schedules stocks and the lake
 scheduler gate reads an older registry copy; changing them is a separate
 runtime follow-up.
 

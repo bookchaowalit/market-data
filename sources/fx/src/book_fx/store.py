@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from . import config
 from . import lake
+from .freshness import apply_ecb_freshness
 
 
 def _load_product_store():
@@ -133,7 +134,7 @@ def load_records(
     data_lake_uri: Optional[str] = None,
 ) -> dict[str, Any]:
     del data_dir
-    return _ps_mod().load_layered_dataset(
+    payload = _ps_mod().load_layered_dataset(
         _contract(),
         config.LAKE_DATASET_RATES,
         data_lake_uri=data_lake_uri or _lake_uri(),
@@ -157,6 +158,8 @@ def load_records(
         ),
     )
 
+    return apply_ecb_freshness(payload)
+
 
 def load_history(
     data_dir: Optional[Path] = None,
@@ -164,7 +167,7 @@ def load_history(
     data_lake_uri: Optional[str] = None,
 ) -> dict[str, Any]:
     del data_dir
-    return _ps_mod().load_layered_dataset(
+    payload = _ps_mod().load_layered_dataset(
         _contract(),
         config.LAKE_DATASET_HISTORY,
         data_lake_uri=data_lake_uri or _lake_uri(),
@@ -178,6 +181,7 @@ def load_history(
         read_fallback=config.LAKE_READ_FALLBACK,
         silver_read_mode=config.SILVER_READ_MODE,
     )
+    return apply_ecb_freshness(payload, history=True)
 
 
 def get_record(

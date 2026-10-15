@@ -165,6 +165,44 @@ Before any Bronze or CSV write (`book_fx.quality.clean_rates`):
   >= 0 (exit 2 otherwise).
 - CSV projections are written atomically (temp file + `os.replace`).
 
+## ECB publication freshness
+
+The served snapshot and history `data_status` compare provider `date` fields
+with the **last expected ECB publication date**, rather than treating a Friday
+rate as stale merely because 24 hours elapsed. This rule is applied in the FX
+store wrapper after Bronze/guarded Silver loading; shared lake capture checks
+and storage are unchanged.
+
+- Policy cutoff: **16:00 Europe/Berlin** (Frankfurt local time, including CET/CEST).
+  Before that cutoff the previous publication day is expected. At/after it,
+  today's rate is expected if today is a publication day. A valid same-day rate
+  received slightly earlier is accepted. Naive clocks are rejected.
+- Skip Saturdays/Sundays and the six recurring TARGET closing days: 1 January,
+  Good Friday, Easter Monday (Gregorian Easter), 1 May, 25 and 26 December.
+  Holidays are used on their actual dates, with no substitute Monday rule.
+  ECB office/German national holidays such as Ascension Day are **not** all
+  TARGET closures. This is the current recurring TARGET rule, not a general
+  public-holiday library or a record of exceptional future shutdowns.
+- Every current snapshot quote must meet the expected date. History compares
+  its newest date; older historical observations remain valid history.
+  Missing, invalid, non-YYYY-MM-DD or future rate dates are malformed.
+  The calendar defines the expected date; it does not validate provider provenance. Empty, malformed and error loader results remain unchanged,
+  including Silver fail-closed results.
+- The cutoff is a deterministic monitoring policy, **not a delivery SLA**:
+  ECB says rates normally appear *around* 16:00, and Frankfurter can lag. A
+  delayed release can therefore be stale after the cutoff. No provider request
+  is made by this check. `STALE_AFTER_HOURS` still applies to the optional raw
+  CSV projection/shared loader; it no longer defines served FX event-date status.
+  This does not establish capture freshness or replace the separate 8-hour
+  capture SLO, scheduled observation or provider-date metadata work.
+
+Primary references (checked 2026-10-15):
+[ECB reference-rate publication](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html),
+[ECB calendar with TARGET closing-day marks](https://www.ecb.europa.eu/ecb/contacts/working-hours/html/index.en.html).
+The committed `fixtures/ecb_freshness.json` covers weekend/Easter/Christmas,
+2026–2028 movable dates, winter/summer cutoffs, a non-TARGET office holiday and
+UTC/Bangkok/US input clocks. These are synthetic clock/date fixtures.
+
 ## Tests
 
 ```bash

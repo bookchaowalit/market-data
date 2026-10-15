@@ -3,6 +3,8 @@ import copy
 import json
 import importlib.util
 import tempfile
+import subprocess
+import sys
 import unittest
 from datetime import date, datetime
 from pathlib import Path
@@ -78,3 +80,25 @@ class ECBFreshnessTests(unittest.TestCase):
                 self.assertEqual(store.load_history(data_lake_uri=tmp)["data_status"], "ok")
             with mock.patch("book_fx.freshness._now", return_value=datetime.fromisoformat("2026-04-07T14:00:00Z")):
                 self.assertEqual(store.load_records(data_lake_uri=tmp)["data_status"], "stale")
+
+    def test_packaged_timezone_works_without_system_iana_database(self):
+        # New process imports the actual store/API only after disabling system
+        # zoneinfo paths, so an already-cached Europe/Berlin cannot mask failure.
+        code = """
+from importlib.metadata import version
+from zoneinfo import ZoneInfo, reset_tzpath
+reset_tzpath([])
+ZoneInfo.clear_cache()
+from book_fx import store, api
+from book_fx.freshness import expected_rate_date
+from datetime import datetime, date
+assert version('tzdata')
+assert expected_rate_date(datetime.fromisoformat('2026-01-05T14:59:59Z')) == date(2026, 1, 2)
+assert expected_rate_date(datetime.fromisoformat('2026-01-05T15:00:00Z')) == date(2026, 1, 5)
+assert expected_rate_date(datetime.fromisoformat('2026-07-06T13:59:59Z')) == date(2026, 7, 3)
+assert expected_rate_date(datetime.fromisoformat('2026-07-06T14:00:00Z')) == date(2026, 7, 6)
+print('packaged IANA timezone: store/API imports and winter/summer cutoff passed')
+"""
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("winter/summer cutoff passed", result.stdout)

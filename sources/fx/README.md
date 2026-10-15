@@ -174,6 +174,8 @@ store wrapper after Bronze/guarded Silver loading; shared lake capture checks
 and storage are unchanged.
 
 - Policy cutoff: **16:00 Europe/Berlin** (Frankfurt local time, including CET/CEST).
+  `tzdata` is an unconditional runtime dependency so systems without an IANA
+  database (including Windows/minimal Linux) retain DST-aware behavior.
   Before that cutoff the previous publication day is expected. At/after it,
   today's rate is expected if today is a publication day. A valid same-day rate
   received slightly earlier is accepted. Naive clocks are rejected.

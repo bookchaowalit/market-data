@@ -9,6 +9,7 @@ import math
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from book_crypto import ingest, lake, ohlcv, quality
 from book_crypto.fsutil import atomic_append_csv, atomic_write_csv
@@ -96,7 +97,9 @@ class PriceRecordQualityTests(unittest.TestCase):
         self.assertEqual([a["coin"] for a in alerts], ["y"])
 
     def test_zero_valid_records_fails_before_lake_write(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+            lake, "utc_now_iso", return_value=EVENT_TIME
+        ):
             with self.assertRaises(RuntimeError) as ctx, contextlib.redirect_stdout(io.StringIO()):
                 ingest._lake_ingest_prices(
                     b"{}", {"bitcoin": {"usd": float("nan")}}, ["usd"],

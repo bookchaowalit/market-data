@@ -159,6 +159,26 @@ ALLOW_REFRESH=false
 | `yahoo_public` | free (best-effort; unofficial) |
 | paid market data APIs | blocked |
 
+### Yahoo chart endpoint terms review — 2026-10-15
+
+The `query1.finance.yahoo.com/v8/finance/chart` endpoint is unofficial and
+best-effort. Live fallback provider: **none implemented or approved**; offline
+fixture mode is not a live fallback.
+
+Yahoo regional terms covering Thailand require prior permission for automated
+collection. This review found no project-specific collection/storage/reuse
+authorisation. The local `free` flag describes billing, not source rights.
+Official indexed terms were reviewed on 2026-10-15; direct retrieval failed.
+
+**Interim scope (owner decision 2026-10-15, BOO-250): synthetic offline
+fixtures only** until an operator/provider-rights decision is recorded. This
+records no collection approval; do not run or schedule live Yahoo collection
+under this scope. The coverage registry records stocks as `conditional`
+(`interim_scope: fixture_only`), not `bounded`.
+
+Sources: [Yahoo regional terms](https://legal.yahoo.com/sg/en/yahoo/terms/otos/index.html),
+[Yahoo regional selector](https://legal.yahoo.com/index.html).
+
 ## Data quality
 
 Before any Bronze or CSV write (`book_stock.quality`, `lake.quote_records_with_report`):

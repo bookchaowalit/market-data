@@ -1,4 +1,5 @@
 """Data-quality guards, cross-rate sanity and CLI validation for book-fx-data."""
+
 from __future__ import annotations
 
 import contextlib
@@ -46,13 +47,19 @@ class RecordQualityTests(unittest.TestCase):
 
     def test_inverse_is_reciprocal_cross_rate(self):
         records = lake.rate_records_from_api(
-            {"base": "thb", "date": "2026-08-01", "rates": {"USD": 0.028, "EUR": 0.026, "JPY": 4.1}},
+            {
+                "base": "thb",
+                "date": "2026-08-01",
+                "rates": {"USD": 0.028, "EUR": 0.026, "JPY": 4.1},
+            },
             event_time=EVENT_TIME,
         )
         for record in records:
             with self.subTest(currency=record["currency"]):
                 self.assertEqual(record["base"], "THB")
-                self.assertAlmostEqual(record["rate"] * record["inverse"], 1.0, places=4)
+                self.assertAlmostEqual(
+                    record["rate"] * record["inverse"], 1.0, places=4
+                )
 
     def test_history_records_drop_invalid_and_duplicate_days(self):
         history = [
@@ -70,7 +77,9 @@ class RecordQualityTests(unittest.TestCase):
 
 class FixtureSanityTests(unittest.TestCase):
     def test_fixture_inverse_matches_rate(self):
-        with (config.FIXTURES_DIR / "exchange_rates.csv").open(newline="", encoding="utf-8") as f:
+        with (config.FIXTURES_DIR / "exchange_rates.csv").open(
+            newline="", encoding="utf-8"
+        ) as f:
             rows = list(csv.DictReader(f))
         self.assertTrue(rows)
         for row in rows:
@@ -81,7 +90,9 @@ class FixtureSanityTests(unittest.TestCase):
                 self.assertAlmostEqual(inverse, 1 / rate, delta=0.01)
 
     def test_fixture_history_has_unique_keys_and_positive_rates(self):
-        with (config.FIXTURES_DIR / "exchange_history.csv").open(newline="", encoding="utf-8") as f:
+        with (config.FIXTURES_DIR / "exchange_history.csv").open(
+            newline="", encoding="utf-8"
+        ) as f:
             rows = list(csv.DictReader(f))
         keys = [(r["date"], r["base"], r["currency"]) for r in rows]
         self.assertEqual(len(keys), len(set(keys)))
@@ -94,20 +105,39 @@ class TrendTests(unittest.TestCase):
         history[0]["rates"]["USD"] = float("nan")
         self.assertEqual(ingest.detect_trend(history, "USD")["direction"], "unknown")
         history[0]["rates"]["USD"] = 0.027
-        self.assertEqual(ingest.detect_trend(history, "USD")["direction"], "strengthening")
+        self.assertEqual(
+            ingest.detect_trend(history, "USD")["direction"], "strengthening"
+        )
 
 
 class LiveIngestQualityTests(unittest.TestCase):
     def test_zero_valid_rates_fail_before_lake_or_csv(self):
-        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
-            with mock.patch.object(
-                ingest, "fetch_latest_raw",
-                return_value=(b"{}", {"base": "THB", "date": "2026-08-01", "rates": {"USD": float("nan")}}),
-            ), mock.patch.object(lake, "ingest_to_lake") as write:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            with (
+                mock.patch.object(
+                    ingest,
+                    "fetch_latest_raw",
+                    return_value=(
+                        b"{}",
+                        {
+                            "base": "THB",
+                            "date": "2026-08-01",
+                            "rates": {"USD": float("nan")},
+                        },
+                    ),
+                ),
+                mock.patch.object(lake, "ingest_to_lake") as write,
+            ):
                 with self.assertRaises(RuntimeError):
                     ingest.run_live_ingest(
-                        base="THB", symbols=["USD"], output_dir=Path(tmp),
-                        fetch_history_flag=False, data_lake_uri=tmp,
+                        base="THB",
+                        symbols=["USD"],
+                        output_dir=Path(tmp),
+                        fetch_history_flag=False,
+                        data_lake_uri=tmp,
                     )
             write.assert_not_called()
             self.assertEqual(list(Path(tmp).iterdir()), [])
@@ -115,7 +145,10 @@ class LiveIngestQualityTests(unittest.TestCase):
 
 class CliValidationTests(unittest.TestCase):
     def _exit_code(self, argv: list[str]) -> int:
-        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as ctx:
+        with (
+            contextlib.redirect_stderr(io.StringIO()),
+            self.assertRaises(SystemExit) as ctx,
+        ):
             ingest.main(argv)
         return ctx.exception.code
 
@@ -127,7 +160,9 @@ class CliValidationTests(unittest.TestCase):
 
     def test_codes_are_normalized(self):
         with mock.patch.object(ingest, "run_live_ingest") as run:
-            self.assertEqual(ingest.main(["--base", "thb", "--symbols", "usd,USD,thb,eur"]), 0)
+            self.assertEqual(
+                ingest.main(["--base", "thb", "--symbols", "usd,USD,thb,eur"]), 0
+            )
         self.assertEqual(run.call_args.kwargs["base"], "THB")
         self.assertEqual(run.call_args.kwargs["symbols"], ["USD", "EUR"])
 
@@ -135,15 +170,21 @@ class CliValidationTests(unittest.TestCase):
 class AtomicWriteTests(unittest.TestCase):
     def test_projections_leave_no_temp_files(self):
         data = {"base": "THB", "date": "2026-08-01", "rates": {"USD": 0.028}}
-        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
             out = Path(tmp)
             ingest.project_rates_csv(data, out, {})
             ingest.project_history_csv(data, out)
             ingest.project_history_csv(data, out)
             self.assertEqual(
-                sorted(p.name for p in out.iterdir()), ["exchange_history.csv", "exchange_rates.csv"]
+                sorted(p.name for p in out.iterdir()),
+                ["exchange_history.csv", "exchange_rates.csv"],
             )
-            lines = (out / "exchange_history.csv").read_text(encoding="utf-8").splitlines()
+            lines = (
+                (out / "exchange_history.csv").read_text(encoding="utf-8").splitlines()
+            )
             self.assertEqual(lines[0], "date,base,currency,rate")
             self.assertEqual(len(lines), 3)
 

@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+
 def _require_httpx():
     try:
         import httpx as _httpx
@@ -53,7 +54,12 @@ OUTPUT_DIR = PROJECT_ROOT / "data"
 # Free-only policy / local store (API-compatible local data)
 try:
     from . import config as _dp_config
-    from .policy import evaluate_provider, require_provider, require_external_writes, external_writes_allowed
+    from .policy import (
+        evaluate_provider,
+        require_provider,
+        require_external_writes,
+        external_writes_allowed,
+    )
     from .store import seed_fixtures
     from . import lake as _lake
     from .fsutil import atomic_append_csv, atomic_write_csv
@@ -67,6 +73,7 @@ except ImportError:  # pragma: no cover
             allowed = True
             status = "free"
             reason = ""
+
         return D()
 
     def require_provider(name):
@@ -85,9 +92,21 @@ except ImportError:  # pragma: no cover
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 
 DEFAULT_COINS = [
-    "bitcoin", "ethereum", "solana", "binancecoin", "ripple",
-    "cardano", "dogecoin", "polkadot", "avalanche-2", "chainlink",
-    "polygon-matic", "litecoin", "uniswap", "stellar", "cosmos",
+    "bitcoin",
+    "ethereum",
+    "solana",
+    "binancecoin",
+    "ripple",
+    "cardano",
+    "dogecoin",
+    "polkadot",
+    "avalanche-2",
+    "chainlink",
+    "polygon-matic",
+    "litecoin",
+    "uniswap",
+    "stellar",
+    "cosmos",
 ]
 
 DEFAULT_CURRENCIES = ["usd", "thb"]
@@ -221,7 +240,14 @@ def project_history_csv(data: dict, currencies: list, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     history_file = output_dir / "crypto_history.csv"
     rows = history_rows_for_csv(data, currencies)
-    fieldnames = ["date", "coin_id", "currency", "price", "change_24h_pct", "market_cap"]
+    fieldnames = [
+        "date",
+        "coin_id",
+        "currency",
+        "price",
+        "change_24h_pct",
+        "market_cap",
+    ]
     atomic_append_csv(history_file, fieldnames, rows)
     print(f"  Projected +{len(rows)} history rows → {history_file}")
     return history_file
@@ -233,7 +259,9 @@ def project_trending_csv(trending: list, output_dir: Path) -> Path:
     trending_file = output_dir / "crypto_trending.csv"
     now = _projection_timestamp()
     fieldnames = ["date", "id", "name", "symbol", "market_cap_rank", "score"]
-    atomic_write_csv(trending_file, fieldnames, ({"date": now, **coin} for coin in trending))
+    atomic_write_csv(
+        trending_file, fieldnames, ({"date": now, **coin} for coin in trending)
+    )
     print(f"  Projected {len(trending)} trending coins → {trending_file}")
     return trending_file
 
@@ -315,7 +343,9 @@ def _lake_ingest_prices(
             "rejected_by_reason": rejected_by_reason,
         },
     )
-    _lake.write_lineage(result, dataset=_dp_config.LAKE_DATASET_PRICES, data_dir=output_dir)
+    _lake.write_lineage(
+        result, dataset=_dp_config.LAKE_DATASET_PRICES, data_dir=output_dir
+    )
     print(
         f"  Lake prices: run_id={result.get('run_id')} "
         f"records={result.get('record_count')} bronze={result.get('bronze_key')}"
@@ -342,7 +372,9 @@ def _lake_ingest_trending(
         data_lake_uri=data_lake_uri,
         metadata={"endpoint": "search/trending"},
     )
-    _lake.write_lineage(result, dataset=_dp_config.LAKE_DATASET_TRENDING, data_dir=output_dir)
+    _lake.write_lineage(
+        result, dataset=_dp_config.LAKE_DATASET_TRENDING, data_dir=output_dir
+    )
     print(
         f"  Lake trending: run_id={result.get('run_id')} "
         f"records={result.get('record_count')} bronze={result.get('bronze_key')}"
@@ -361,7 +393,9 @@ def run_live_ingest(
     project_csv: bool = True,
 ) -> dict[str, Any]:
     """Live free-only ingest: lake first, then optional CSV projection."""
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Crypto Price Scraper (lake-first)")
+    print(
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Crypto Price Scraper (lake-first)"
+    )
     print(f"  Coins: {len(coins)} | Currencies: {currencies}")
     if data_lake_uri:
         print(f"  Data lake: {data_lake_uri}")
@@ -515,7 +549,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         if _lake is not None and isinstance(
             exc, (_lake.LakeUnavailable, _lake.LakeIngestError)
         ):
-            print(f"ERROR: lake ingest failed before projection: {exc}", file=sys.stderr)
+            print(
+                f"ERROR: lake ingest failed before projection: {exc}", file=sys.stderr
+            )
             return 2
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

@@ -4,6 +4,7 @@ Serves normalized Bronze Parquet data via DuckDB. GET handlers never scrape
 upstream providers and do not read local CSV projections. Bind defaults to
 127.0.0.1. POST /v1/refresh is disabled by default (403).
 """
+
 from __future__ import annotations
 
 import hmac
@@ -17,12 +18,21 @@ from urllib.parse import parse_qs, unquote, urlparse
 from . import config
 from .lake import load_lineage
 from .policy import provider_matrix
-from .store import envelope, get_record, load_history, load_records, paginate, utc_now_iso
+from .store import (
+    envelope,
+    get_record,
+    load_history,
+    load_records,
+    paginate,
+    utc_now_iso,
+)
 
 
 # Browser consumers (insights/portfolio) run on other loopback ports and need CORS.
 # Allow only local development origins — never reflect arbitrary Origin values.
-_LOCAL_ORIGIN_RE = re.compile(r"^https?://(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$", re.I)
+_LOCAL_ORIGIN_RE = re.compile(
+    r"^https?://(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$", re.I
+)
 
 
 def _allowed_cors_origin(origin: str | None) -> str | None:
@@ -45,7 +55,9 @@ def _apply_cors_headers(handler: BaseHTTPRequestHandler) -> None:
     handler.send_header("Vary", "Origin")
 
 
-def _json_response(handler: BaseHTTPRequestHandler, status: int, body: dict[str, Any]) -> None:
+def _json_response(
+    handler: BaseHTTPRequestHandler, status: int, body: dict[str, Any]
+) -> None:
     payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
@@ -155,11 +167,15 @@ class DataProductHandler(BaseHTTPRequestHandler):
                     else "lake_first_iceberg_rest_duckdb"
                     if str(records.get("source_kind", "")).startswith("iceberg_")
                     else "lake_first_bronze_s3_duckdb"
-                    if str(records.get("source_kind", "")).startswith("bronze_s3_parquet")
+                    if str(records.get("source_kind", "")).startswith(
+                        "bronze_s3_parquet"
+                    )
                     else "lake_first_bronze_duckdb"
                 ),
                 "read_mode": records.get("read_mode", config.LAKE_READ_MODE),
-                "read_fallback": records.get("read_fallback", config.LAKE_READ_FALLBACK),
+                "read_fallback": records.get(
+                    "read_fallback", config.LAKE_READ_FALLBACK
+                ),
                 "fallback_reason": records.get("fallback_reason"),
                 "lake_domain": config.LAKE_DOMAIN,
                 "lake_source": config.LAKE_SOURCE,
@@ -193,12 +209,16 @@ class DataProductHandler(BaseHTTPRequestHandler):
             )
 
         if path.startswith("/v1/records/"):
-            record_id = unquote(path[len("/v1/records/"):])
+            record_id = unquote(path[len("/v1/records/") :])
             if not record_id or record_id == "/":
                 return _json_response(
                     self,
                     400,
-                    envelope(items=[], data_status="error", extra={"error": "missing record_id"}),
+                    envelope(
+                        items=[],
+                        data_status="error",
+                        extra={"error": "missing record_id"},
+                    ),
                 )
             item = get_record(record_id)
             if item is None:
@@ -241,7 +261,9 @@ class DataProductHandler(BaseHTTPRequestHandler):
         return _json_response(
             self,
             404,
-            envelope(items=[], data_status="not_found", extra={"error": "unknown endpoint"}),
+            envelope(
+                items=[], data_status="not_found", extra={"error": "unknown endpoint"}
+            ),
         )
 
     def do_POST(self) -> None:  # noqa: N802
@@ -251,7 +273,11 @@ class DataProductHandler(BaseHTTPRequestHandler):
             return _json_response(
                 self,
                 404,
-                envelope(items=[], data_status="not_found", extra={"error": "unknown endpoint"}),
+                envelope(
+                    items=[],
+                    data_status="not_found",
+                    extra={"error": "unknown endpoint"},
+                ),
             )
 
         # Disabled by default. Requires ALLOW_REFRESH=true and matching token.
@@ -297,7 +323,9 @@ class DataProductHandler(BaseHTTPRequestHandler):
         )
 
 
-def create_server(host: Optional[str] = None, port: Optional[int] = None) -> ThreadingHTTPServer:
+def create_server(
+    host: Optional[str] = None, port: Optional[int] = None
+) -> ThreadingHTTPServer:
     host = host or config.API_HOST
     port = port if port is not None else config.API_PORT
     return ThreadingHTTPServer((host, port), DataProductHandler)
@@ -306,8 +334,12 @@ def create_server(host: Optional[str] = None, port: Optional[int] = None) -> Thr
 def main(argv: Optional[list[str]] = None) -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Local read-only API for book-crypto-data")
-    parser.add_argument("--host", default=config.API_HOST, help="Bind host (default 127.0.0.1)")
+    parser = argparse.ArgumentParser(
+        description="Local read-only API for book-crypto-data"
+    )
+    parser.add_argument(
+        "--host", default=config.API_HOST, help="Bind host (default 127.0.0.1)"
+    )
     parser.add_argument("--port", type=int, default=config.API_PORT, help="Bind port")
     args = parser.parse_args(argv)
 

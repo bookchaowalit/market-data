@@ -18,6 +18,7 @@ Usage:
     python -m book_crypto.ohlcv --symbols BTCUSDT,ETHUSDT --interval 1h --days 730
     python -m book_crypto.ohlcv --symbols BTCUSDT --no-funding --json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -83,7 +84,7 @@ def http_fetch(url: str, params: dict[str, Any]) -> bytes:
             resp = httpx.get(url, params=params, timeout=config.REQUEST_TIMEOUT_SECONDS)
         except httpx.TimeoutException as exc:
             last_error = exc
-            time.sleep(min(2 ** attempt, 8))
+            time.sleep(min(2**attempt, 8))
             continue
         if resp.status_code in (418, 429):
             last_error = RuntimeError(f"rate limited (HTTP {resp.status_code})")
@@ -159,7 +160,9 @@ def kline_records(
     return records
 
 
-def funding_records(payload: list[dict[str, Any]], *, symbol: str) -> list[dict[str, Any]]:
+def funding_records(
+    payload: list[dict[str, Any]], *, symbol: str
+) -> list[dict[str, Any]]:
     """Normalize funding rows; drop non-finite rates and repeated funding times."""
     records = []
     seen: set[int] = set()
@@ -184,7 +187,9 @@ def funding_records(payload: list[dict[str, Any]], *, symbol: str) -> list[dict[
     return records
 
 
-def latest_event_ms(dataset: str, id_prefix: str, *, data_lake_uri: str) -> Optional[int]:
+def latest_event_ms(
+    dataset: str, id_prefix: str, *, data_lake_uri: str
+) -> Optional[int]:
     """Return the newest event time already in Bronze for one series."""
     safe_prefix = id_prefix.replace("'", "''")
     try:
@@ -202,7 +207,9 @@ def latest_event_ms(dataset: str, id_prefix: str, *, data_lake_uri: str) -> Opti
     return parse_iso_ms(str(latest)) if latest else None
 
 
-def _ingest(raw: bytes, records: list[dict[str, Any]], dataset: str, uri: str, meta: dict) -> dict:
+def _ingest(
+    raw: bytes, records: list[dict[str, Any]], dataset: str, uri: str, meta: dict
+) -> dict:
     return _lake.ingest_to_lake(
         raw=raw,
         records=records,
@@ -242,7 +249,11 @@ def capture_klines(
         if not payload:
             break
         records = kline_records(
-            payload, venue=spec["venue"], symbol=symbol, interval=interval, now_ms=now_ms
+            payload,
+            venue=spec["venue"],
+            symbol=symbol,
+            interval=interval,
+            now_ms=now_ms,
         )
         if records:
             result = _ingest(
@@ -258,7 +269,13 @@ def capture_klines(
         if len(payload) < spec["page_limit"] or not records:
             break
         cursor = last_open + step
-    return {"symbol": symbol, "interval": interval, "market": market, "pages": pages, "bars_written": written}
+    return {
+        "symbol": symbol,
+        "interval": interval,
+        "market": market,
+        "pages": pages,
+        "bars_written": written,
+    }
 
 
 def capture_funding(
@@ -271,7 +288,12 @@ def capture_funding(
 ) -> dict[str, Any]:
     cursor, pages, written = start_ms, 0, 0
     while cursor < end_ms and pages < MAX_PAGES_PER_SERIES:
-        params = {"symbol": symbol, "startTime": cursor, "endTime": end_ms, "limit": FUNDING_PAGE_LIMIT}
+        params = {
+            "symbol": symbol,
+            "startTime": cursor,
+            "endTime": end_ms,
+            "limit": FUNDING_PAGE_LIMIT,
+        }
         raw = fetch(FUNDING_URL, params)
         pages += 1
         payload = json.loads(raw)
@@ -279,7 +301,13 @@ def capture_funding(
             break
         records = funding_records(payload, symbol=symbol)
         if records:
-            _ingest(raw, records, config.LAKE_DATASET_FUNDING, data_lake_uri, {"symbol": symbol})
+            _ingest(
+                raw,
+                records,
+                config.LAKE_DATASET_FUNDING,
+                data_lake_uri,
+                {"symbol": symbol},
+            )
             written += len(records)
         if len(payload) < FUNDING_PAGE_LIMIT:
             break
@@ -312,17 +340,33 @@ def run_capture(
         symbol = symbol.strip().upper()
         if not symbol:
             continue
-        latest = latest_event_ms(config.LAKE_DATASET_OHLCV, f"{venue}:{symbol}:{interval}:", data_lake_uri=uri)
+        latest = latest_event_ms(
+            config.LAKE_DATASET_OHLCV,
+            f"{venue}:{symbol}:{interval}:",
+            data_lake_uri=uri,
+        )
         start = latest + INTERVAL_MS[interval] if latest is not None else backfill_start
         item = capture_klines(
-            symbol, interval=interval, market=market, start_ms=start, end_ms=now_ms,
-            data_lake_uri=uri, fetch=fetch, now_ms=now_ms,
+            symbol,
+            interval=interval,
+            market=market,
+            start_ms=start,
+            end_ms=now_ms,
+            data_lake_uri=uri,
+            fetch=fetch,
+            now_ms=now_ms,
         )
         item["resumed_from"] = iso_utc(start)
         if funding and market == "futures":
-            latest_f = latest_event_ms(config.LAKE_DATASET_FUNDING, f"binance_futures:{symbol}:funding:", data_lake_uri=uri)
+            latest_f = latest_event_ms(
+                config.LAKE_DATASET_FUNDING,
+                f"binance_futures:{symbol}:funding:",
+                data_lake_uri=uri,
+            )
             f_start = latest_f + 1 if latest_f is not None else backfill_start
-            item["funding"] = capture_funding(symbol, start_ms=f_start, end_ms=now_ms, data_lake_uri=uri, fetch=fetch)
+            item["funding"] = capture_funding(
+                symbol, start_ms=f_start, end_ms=now_ms, data_lake_uri=uri, fetch=fetch
+            )
         series.append(item)
     return {
         "status": "success",
@@ -334,11 +378,15 @@ def run_capture(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--symbols", default="BTCUSDT,ETHUSDT")
     ap.add_argument("--interval", default="1h", choices=sorted(INTERVAL_MS))
     ap.add_argument("--market", default="futures", choices=sorted(MARKETS))
-    ap.add_argument("--days", type=int, default=730, help="backfill depth when a series is empty")
+    ap.add_argument(
+        "--days", type=int, default=730, help="backfill depth when a series is empty"
+    )
     ap.add_argument("--no-funding", action="store_true")
     ap.add_argument("--data-lake-uri", default="")
     ap.add_argument("--json", action="store_true", dest="as_json")
@@ -356,7 +404,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         )
     except Exception as exc:  # noqa: BLE001 - fail closed with a bounded message
         payload = {"status": "failed", "error": f"{type(exc).__name__}: {exc}"}
-        print(json.dumps(payload) if args.as_json else f"OHLCV capture FAILED: {payload['error']}", file=sys.stderr)
+        print(
+            json.dumps(payload)
+            if args.as_json
+            else f"OHLCV capture FAILED: {payload['error']}",
+            file=sys.stderr,
+        )
         return 2
     if args.as_json:
         print(json.dumps(result, sort_keys=True))

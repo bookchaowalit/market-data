@@ -1,4 +1,5 @@
 """Runtime configuration for book-fx-data."""
+
 from __future__ import annotations
 
 import os

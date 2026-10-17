@@ -219,9 +219,7 @@ def project_yields_csv(pools: list, output_dir: Path) -> Path:
     ]
     scraped = _projection_timestamp()
     records = (
-        _lake.yield_records_from_pools(pools, dedupe=True)
-        if _lake is not None
-        else []
+        _lake.yield_records_from_pools(pools, dedupe=True) if _lake is not None else []
     )
     # Prefer normalized records for stable pool_id projection.
     rows: list[dict[str, Any]] = []
@@ -283,9 +281,7 @@ def project_history_csv(pools: list, output_dir: Path) -> Path:
     ]
     scraped = _projection_timestamp()
     records = (
-        _lake.yield_records_from_pools(pools, dedupe=True)
-        if _lake is not None
-        else []
+        _lake.yield_records_from_pools(pools, dedupe=True) if _lake is not None else []
     )
     rows: list[dict[str, Any]] = []
     if records:
@@ -527,9 +523,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     # Chain names are case-sensitive on DeFiLlama ("Ethereum"), so only trim
     # and de-duplicate; an empty list means "all chains".
     chains = list(dict.fromkeys(c.strip() for c in args.chains.split(",") if c.strip()))
-    categories = list(
-        dict.fromkeys(c.strip() for c in args.categories.split(",") if c.strip())
-    ) or None
+    categories = (
+        list(dict.fromkeys(c.strip() for c in args.categories.split(",") if c.strip()))
+        or None
+    )
     if not math.isfinite(args.min_apy) or args.min_apy < 0:
         parser.error("--min-apy must be a finite, non-negative number")
     output_dir = Path(args.output_dir)

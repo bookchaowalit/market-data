@@ -1,4 +1,5 @@
 """Read-only store for book-fx-data (Bronze via shared product_store)."""
+
 from __future__ import annotations
 
 import json
@@ -20,6 +21,7 @@ def _load_product_store():
                 sys.path.insert(0, str(scripts))
             break
     from data_lake import product_store as ps  # type: ignore
+
     return ps
 
 
@@ -228,7 +230,9 @@ def load_csv_projection(
     data_dir: Optional[Path] = None,
 ) -> dict[str, Any]:
     data_dir = Path(data_dir or config.DATA_DIR)
-    path = data_dir / (config.HISTORY_FILE if kind == "history" else config.RECORDS_FILE)
+    path = data_dir / (
+        config.HISTORY_FILE if kind == "history" else config.RECORDS_FILE
+    )
     return _ps_mod().load_csv_projection(
         path=path,
         id_fields=config.ID_FIELDS,
@@ -265,7 +269,9 @@ def seed_lake_from_rates(
 ) -> dict[str, Any]:
     """Test/dev helper: write exchange_rates + exchange_history Bronze parts."""
     records = lake.rate_records_from_api(data, trends=trends)
-    payload = raw or json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    payload = raw or json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
     rates = lake.ingest_to_lake(
         raw=payload,
         records=records,
@@ -287,7 +293,11 @@ def seed_lake_from_rates(
             for r in records
         ]
     history_raw = json.dumps(
-        {"base": data.get("base"), "rates": history_days or data.get("rates"), "dataset": "exchange_history"},
+        {
+            "base": data.get("base"),
+            "rates": history_days or data.get("rates"),
+            "dataset": "exchange_history",
+        },
         ensure_ascii=False,
         separators=(",", ":"),
     ).encode("utf-8")
@@ -300,5 +310,7 @@ def seed_lake_from_rates(
     )
     if data_dir is not None:
         lake.write_lineage(rates, dataset=config.LAKE_DATASET_RATES, data_dir=data_dir)
-        lake.write_lineage(history, dataset=config.LAKE_DATASET_HISTORY, data_dir=data_dir)
+        lake.write_lineage(
+            history, dataset=config.LAKE_DATASET_HISTORY, data_dir=data_dir
+        )
     return {"rates": rates, "history": history}

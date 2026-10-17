@@ -1,4 +1,5 @@
 """Read-only store for book-defi-data (Bronze via shared product_store)."""
+
 from __future__ import annotations
 
 import json
@@ -19,6 +20,7 @@ def _load_product_store():
                 sys.path.insert(0, str(scripts))
             break
     from data_lake import product_store as ps  # type: ignore
+
     return ps
 
 
@@ -90,7 +92,9 @@ def defi_item_from_bronze(
         "ingest_run_id": str(row.get("ingest_run_id", "")),
         "source_record_id": str(row.get("source_record_id", "")),
         "raw_object_key": str(row.get("raw_object_key", "")),
-        "lineage_chain": str(payload.get("lineage_chain") or payload.get("chain") or ""),
+        "lineage_chain": str(
+            payload.get("lineage_chain") or payload.get("chain") or ""
+        ),
         "lineage_protocol": str(
             payload.get("lineage_protocol")
             or payload.get("protocol")
@@ -195,7 +199,9 @@ def load_csv_projection(
     data_dir: Optional[Path] = None,
 ) -> dict[str, Any]:
     data_dir = Path(data_dir or config.DATA_DIR)
-    path = data_dir / (config.HISTORY_FILE if kind == "history" else config.RECORDS_FILE)
+    path = data_dir / (
+        config.HISTORY_FILE if kind == "history" else config.RECORDS_FILE
+    )
     return _ps_mod().load_csv_projection(
         path=path,
         id_fields=config.ID_FIELDS,
@@ -254,7 +260,9 @@ def seed_lake_from_pools(
         metadata={"seed": "sample", "dataset_role": "history"},
     )
     if data_dir is not None:
-        lake.write_lineage(yields, dataset=config.LAKE_DATASET_YIELDS, data_dir=data_dir)
+        lake.write_lineage(
+            yields, dataset=config.LAKE_DATASET_YIELDS, data_dir=data_dir
+        )
         lake.write_lineage(
             history, dataset=config.LAKE_DATASET_HISTORY, data_dir=data_dir
         )

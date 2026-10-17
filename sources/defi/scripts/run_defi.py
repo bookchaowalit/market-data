@@ -35,7 +35,9 @@ async def run_defi(output_dir: Path) -> list[dict[str, Any]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run book-defi-data DefiLlama collection")
+    parser = argparse.ArgumentParser(
+        description="Run book-defi-data DefiLlama collection"
+    )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "data" / "exported")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()

@@ -1,4 +1,5 @@
 """Edge-case regressions: overflowing numbers, null previous close, env flags."""
+
 from __future__ import annotations
 
 import json
@@ -18,18 +19,26 @@ class QuoteEdgeCases(unittest.TestCase):
     def test_huge_json_int_is_rejected_not_raised(self) -> None:
         huge = json.loads("1" + "0" * 400)
         self.assertIsNone(quality.finite_number(huge))
-        self.assertEqual(ingest.quote_from_chart("X", _chart(regularMarketPrice=huge)), {})
+        self.assertEqual(
+            ingest.quote_from_chart("X", _chart(regularMarketPrice=huge)), {}
+        )
 
     def test_null_chart_previous_close_falls_back_to_previous_close(self) -> None:
-        quote = ingest.quote_from_chart("X", _chart(chartPreviousClose=None, previousClose=100.0))
+        quote = ingest.quote_from_chart(
+            "X", _chart(chartPreviousClose=None, previousClose=100.0)
+        )
         self.assertEqual((quote["prev_close"], quote["change_pct"]), (100.0, 10.0))
 
     def test_tiny_previous_close_does_not_produce_infinite_change(self) -> None:
-        quote = ingest.quote_from_chart("X", _chart(regularMarketPrice=1e300, chartPreviousClose=1e-300))
+        quote = ingest.quote_from_chart(
+            "X", _chart(regularMarketPrice=1e300, chartPreviousClose=1e-300)
+        )
         self.assertTrue(math.isfinite(quote["change_pct"]))
 
     def test_non_dict_meta_is_unusable(self) -> None:
-        self.assertEqual(ingest.quote_from_chart("X", {"chart": {"result": [{"meta": [1]}]}}), {})
+        self.assertEqual(
+            ingest.quote_from_chart("X", {"chart": {"result": [{"meta": [1]}]}}), {}
+        )
 
 
 class EnvBoolTests(unittest.TestCase):

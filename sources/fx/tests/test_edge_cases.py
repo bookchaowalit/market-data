@@ -1,4 +1,5 @@
 """Edge-case regressions: overflowing numbers, subnormal rates, null rates, env flags."""
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,9 @@ class RateEdgeCases(unittest.TestCase):
         self.assertTrue(all(math.isfinite(r["inverse"]) for r in records))
 
     def test_trend_with_null_rates_day_is_unknown(self) -> None:
-        history = [{"date": f"2026-08-0{i}", "rates": {"THB": 38.0}} for i in range(1, 7)]
+        history = [
+            {"date": f"2026-08-0{i}", "rates": {"THB": 38.0}} for i in range(1, 7)
+        ]
         history.append({"date": "2026-08-07", "rates": None})
         self.assertEqual(ingest.detect_trend(history, "THB")["direction"], "unknown")
 

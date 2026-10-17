@@ -104,7 +104,9 @@ def fetch_latest(base: str, symbols: list) -> dict:
     return data
 
 
-def fetch_history_raw(base: str, symbols: list[str], days: int = 30) -> tuple[bytes, list]:
+def fetch_history_raw(
+    base: str, symbols: list[str], days: int = 30
+) -> tuple[bytes, list]:
     require_provider("frankfurter_public")
     # ECB dates are UTC calendar days; a host-local clock can skip or repeat one.
     today = datetime.now(timezone.utc)
@@ -330,7 +332,9 @@ def run_live_ingest(
     data["rates"], rejected = clean_rates(data.get("rates"))
     print(f"  Got {len(data['rates'])} rates (date: {data['date']})")
     if rejected:
-        print(f"  Quality: dropped {len(rejected)} rates {summarize_rejections(rejected)}")
+        print(
+            f"  Quality: dropped {len(rejected)} rates {summarize_rejections(rejected)}"
+        )
     if not data["rates"]:
         raise RuntimeError("Latest payload produced zero valid rates")
 
@@ -411,7 +415,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Scrape exchange rates (lake-first; CSV is projection)"
     )
-    parser.add_argument("--base", default=DEFAULT_BASE, help=f"Base currency (default: {DEFAULT_BASE})")
+    parser.add_argument(
+        "--base", default=DEFAULT_BASE, help=f"Base currency (default: {DEFAULT_BASE})"
+    )
     parser.add_argument(
         "--symbols",
         default=",".join(DEFAULT_SYMBOLS),
@@ -441,7 +447,10 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     base = args.base.strip().upper()
     symbols = [
-        s for s in dict.fromkeys(s.strip().upper() for s in args.symbols.split(",") if s.strip())
+        s
+        for s in dict.fromkeys(
+            s.strip().upper() for s in args.symbols.split(",") if s.strip()
+        )
         if s != base
     ]
     if not _CURRENCY_RE.fullmatch(base):

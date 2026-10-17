@@ -1,4 +1,5 @@
 """Offline tests for book-stock-data free-only API + policy."""
+
 from __future__ import annotations
 
 import json
@@ -183,7 +184,11 @@ class StoreLakeTests(unittest.TestCase):
             (data_dir / config.RECORDS_FILE).write_text(
                 "symbol,price\nPOISON,0\n", encoding="utf-8"
             )
-            with _set_lake_uri(lake_uri), _set_data_dir(data_dir), _set_silver_mode("silver"):
+            with (
+                _set_lake_uri(lake_uri),
+                _set_data_dir(data_dir),
+                _set_silver_mode("silver"),
+            ):
                 payload = load_records(data_dir)
             self.assertEqual(payload["source_kind"], "silver_parquet")
             self.assertEqual(payload["silver_parity"]["status"], "passed")
@@ -213,9 +218,13 @@ class StoreLakeTests(unittest.TestCase):
             with _set_lake_uri(lake_uri), _set_read_mode("parquet"):
                 expected_records = load_records()
                 expected_history = load_history()
-            with _set_lake_uri(lake_uri), _set_read_mode("iceberg"), mock.patch(
-                "data_lake.product_store.read_iceberg_rows",
-                side_effect=read_catalog_rows,
+            with (
+                _set_lake_uri(lake_uri),
+                _set_read_mode("iceberg"),
+                mock.patch(
+                    "data_lake.product_store.read_iceberg_rows",
+                    side_effect=read_catalog_rows,
+                ),
             ):
                 actual_records = load_records()
                 actual_history = load_history()
@@ -230,9 +239,13 @@ class StoreLakeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             lake_uri = str(Path(tmp) / "lake")
             seed_lake_from_quotes(SAMPLE_QUOTES, data_lake_uri=lake_uri)
-            with _set_lake_uri(lake_uri), _set_read_mode("iceberg", "parquet"), mock.patch(
-                "data_lake.product_store.read_iceberg_rows",
-                side_effect=lake.LakeUnavailable("catalog unavailable"),
+            with (
+                _set_lake_uri(lake_uri),
+                _set_read_mode("iceberg", "parquet"),
+                mock.patch(
+                    "data_lake.product_store.read_iceberg_rows",
+                    side_effect=lake.LakeUnavailable("catalog unavailable"),
+                ),
             ):
                 payload = load_records()
 
@@ -244,9 +257,13 @@ class StoreLakeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             lake_uri = str(Path(tmp) / "lake")
             seed_lake_from_quotes(SAMPLE_QUOTES, data_lake_uri=lake_uri)
-            with _set_lake_uri(lake_uri), _set_read_mode("iceberg", "error"), mock.patch(
-                "data_lake.product_store.read_iceberg_rows",
-                side_effect=lake.LakeUnavailable("catalog credentials unavailable"),
+            with (
+                _set_lake_uri(lake_uri),
+                _set_read_mode("iceberg", "error"),
+                mock.patch(
+                    "data_lake.product_store.read_iceberg_rows",
+                    side_effect=lake.LakeUnavailable("catalog credentials unavailable"),
+                ),
             ):
                 payload = load_records()
 
@@ -273,8 +290,9 @@ class CsvProjectionOnlyTests(unittest.TestCase):
 
 class PolicyTests(unittest.TestCase):
     def test_free_only_blocks_paid(self):
-        with mock.patch.object(config, "FREE_ONLY", True), mock.patch.object(
-            config, "ALLOW_PAID_PROVIDERS", False
+        with (
+            mock.patch.object(config, "FREE_ONLY", True),
+            mock.patch.object(config, "ALLOW_PAID_PROVIDERS", False),
         ):
             # unknown/paid providers blocked by default matrix
             decision = policy.evaluate_provider("polygon_paid")
@@ -286,8 +304,9 @@ class PolicyTests(unittest.TestCase):
             self.assertTrue(decision.allowed)
 
     def test_external_writes_blocked(self):
-        with mock.patch.object(config, "FREE_ONLY", True), mock.patch.object(
-            config, "ALLOW_EXTERNAL_WRITES", False
+        with (
+            mock.patch.object(config, "FREE_ONLY", True),
+            mock.patch.object(config, "ALLOW_EXTERNAL_WRITES", False),
         ):
             self.assertFalse(policy.external_writes_allowed())
             with self.assertRaises(PermissionError):
@@ -296,11 +315,14 @@ class PolicyTests(unittest.TestCase):
 
 class HttpClientTests(unittest.TestCase):
     def test_blocks_paid_provider_before_request(self):
-        with mock.patch.object(config, "FREE_ONLY", True), mock.patch.object(
-            config, "ALLOW_PAID_PROVIDERS", False
+        with (
+            mock.patch.object(config, "FREE_ONLY", True),
+            mock.patch.object(config, "ALLOW_PAID_PROVIDERS", False),
         ):
             with self.assertRaises(PermissionError):
-                request_json("GET", "https://example.invalid/paid", provider="polygon_paid")
+                request_json(
+                    "GET", "https://example.invalid/paid", provider="polygon_paid"
+                )
 
     def test_timeout(self):
         if not policy.evaluate_provider("yahoo_public").allowed:
@@ -312,8 +334,9 @@ class HttpClientTests(unittest.TestCase):
 
         fake_httpx = mock.Mock()
         fake_httpx.request = Boom().request
-        with mock.patch("book_stock.http_client.httpx", fake_httpx), mock.patch.object(
-            config, "MAX_RETRIES", 0
+        with (
+            mock.patch("book_stock.http_client.httpx", fake_httpx),
+            mock.patch.object(config, "MAX_RETRIES", 0),
         ):
             with self.assertRaises(UpstreamError) as ctx:
                 request_json(
@@ -406,13 +429,14 @@ class ApiContractTests(unittest.TestCase):
 
     def test_metadata_reports_iceberg_mode(self):
         def read_catalog_rows(contract, dataset, *, data_lake_uri=None, sql=None):
-            return lake.read_bronze_rows(
-                dataset, data_lake_uri=data_lake_uri, sql=sql
-            )
+            return lake.read_bronze_rows(dataset, data_lake_uri=data_lake_uri, sql=sql)
 
-        with _set_read_mode("iceberg"), mock.patch(
-            "data_lake.product_store.read_iceberg_rows",
-            side_effect=read_catalog_rows,
+        with (
+            _set_read_mode("iceberg"),
+            mock.patch(
+                "data_lake.product_store.read_iceberg_rows",
+                side_effect=read_catalog_rows,
+            ),
         ):
             status, body = self._get("/v1/metadata")
 

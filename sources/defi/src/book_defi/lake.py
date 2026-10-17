@@ -6,6 +6,7 @@ Extra guarantees vs FX/stock:
 - snapshot ``event_time``
 - dedupe when the same pool appears twice in one fetch
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -27,7 +28,11 @@ def _load_shared():
     Falls back to a data-lake checkout named by ``SOLO_DATA_LAKE_ROOT``.
     """
     if importlib.util.find_spec("data_lake") is None and config.SOLO_DATA_LAKE_ROOT:
-        scripts = Path(config.SOLO_DATA_LAKE_ROOT).expanduser().resolve() / "infra" / "scripts"
+        scripts = (
+            Path(config.SOLO_DATA_LAKE_ROOT).expanduser().resolve()
+            / "infra"
+            / "scripts"
+        )
         if not (scripts / "data_lake" / "product_adapter.py").is_file():
             raise ImportError(
                 f"SOLO_DATA_LAKE_ROOT={config.SOLO_DATA_LAKE_ROOT} has no "
@@ -93,7 +98,12 @@ def utc_now_iso() -> str:
 
     Kept local so projections and identity helpers work without the lake runtime.
     """
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def shared_runtime_available() -> bool:
@@ -149,6 +159,7 @@ def stable_pool_id(pool: dict[str, Any]) -> str:
     else:
         under = _slug(str(underlying))
     seed = f"{chain}|{project}|{symbol}|{under}"
+    # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1 -- non-cryptographic use: a short stable record ID derived from the row; changing the algorithm would change every stored ID
     digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
     return f"hash:{chain}:{project}:{digest}"
 
@@ -223,7 +234,9 @@ def yield_records_from_pools(
             "protocol": project,
             "project": project,
             "symbol": symbol,
-            "tvl_usd": _metric(pool.get("tvlUsd", pool.get("tvl_usd", 0)), non_negative=True),
+            "tvl_usd": _metric(
+                pool.get("tvlUsd", pool.get("tvl_usd", 0)), non_negative=True
+            ),
             "apy": _metric(pool.get("apy", 0)),
             "apy_base": _metric(pool.get("apyBase", pool.get("apy_base", 0))),
             "apy_reward": _metric(pool.get("apyReward", pool.get("apy_reward", 0))),

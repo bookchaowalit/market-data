@@ -1,4 +1,5 @@
 """Lake-first adapter for book-stock-data (shared product_adapter contract)."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -18,7 +19,11 @@ def _load_shared():
     Falls back to a data-lake checkout named by ``SOLO_DATA_LAKE_ROOT``.
     """
     if importlib.util.find_spec("data_lake") is None and config.SOLO_DATA_LAKE_ROOT:
-        scripts = Path(config.SOLO_DATA_LAKE_ROOT).expanduser().resolve() / "infra" / "scripts"
+        scripts = (
+            Path(config.SOLO_DATA_LAKE_ROOT).expanduser().resolve()
+            / "infra"
+            / "scripts"
+        )
         if not (scripts / "data_lake" / "product_adapter.py").is_file():
             raise ImportError(
                 f"SOLO_DATA_LAKE_ROOT={config.SOLO_DATA_LAKE_ROOT} has no "

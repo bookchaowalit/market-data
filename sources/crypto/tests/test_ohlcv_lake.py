@@ -1,4 +1,5 @@
 """No-network tests for the Binance public OHLCV/funding lake capture."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -15,8 +16,20 @@ T0 = 1_700_000_000_000 - (1_700_000_000_000 % HOUR)
 
 
 def kline(open_ms: int, close: float) -> list:
-    return [open_ms, str(close - 1), str(close + 2), str(close - 3), str(close), "10.5",
-            open_ms + HOUR - 1, "1000.0", 42, "5.0", "500.0", "0"]
+    return [
+        open_ms,
+        str(close - 1),
+        str(close + 2),
+        str(close - 3),
+        str(close),
+        "10.5",
+        open_ms + HOUR - 1,
+        "1000.0",
+        42,
+        "5.0",
+        "500.0",
+        "0",
+    ]
 
 
 class FakeBinance:
@@ -25,7 +38,12 @@ class FakeBinance:
     def __init__(self, n_bars: int, page_limit: int = 3):
         self.bars = [kline(T0 + i * HOUR, 100.0 + i) for i in range(n_bars)]
         self.funding = [
-            {"symbol": "BTCUSDT", "fundingTime": T0 + i * 8 * HOUR, "fundingRate": "0.0001", "markPrice": "100"}
+            {
+                "symbol": "BTCUSDT",
+                "fundingTime": T0 + i * 8 * HOUR,
+                "fundingRate": "0.0001",
+                "markPrice": "100",
+            }
             for i in range(n_bars // 8 + 1)
         ]
         self.page_limit = page_limit
@@ -62,8 +80,14 @@ class OhlcvLakeTests(unittest.TestCase):
             p.start()
         try:
             return ohlcv.run_capture(
-                ["BTCUSDT"], interval="1h", market="futures", days=1,
-                data_lake_uri=self.uri, fetch=fake, now_ms=now_ms, **kw,
+                ["BTCUSDT"],
+                interval="1h",
+                market="futures",
+                days=1,
+                data_lake_uri=self.uri,
+                fetch=fake,
+                now_ms=now_ms,
+                **kw,
             )
         finally:
             for p in patches:
@@ -76,7 +100,10 @@ class OhlcvLakeTests(unittest.TestCase):
     def test_drops_forming_bar(self):
         records = ohlcv.kline_records(
             [kline(T0, 100.0), kline(T0 + HOUR, 101.0)],
-            venue="binance_futures", symbol="BTCUSDT", interval="1h", now_ms=T0 + HOUR + 10,
+            venue="binance_futures",
+            symbol="BTCUSDT",
+            interval="1h",
+            now_ms=T0 + HOUR + 10,
         )
         self.assertEqual([r["open_time_ms"] for r in records], [T0])
         self.assertEqual(records[0]["id"], f"binance_futures:BTCUSDT:1h:{T0}")
@@ -110,8 +137,15 @@ class OhlcvLakeTests(unittest.TestCase):
         fake = FakeBinance(n_bars=24)
         result = self._run(fake, now_ms=T0 + 24 * HOUR)
         self.assertGreaterEqual(result["series"][0]["funding"]["funding_written"], 3)
-        rows = lake.read_bronze_rows(config.LAKE_DATASET_FUNDING, data_lake_uri=self.uri)
-        self.assertTrue(all(r["source_record_id"].startswith("binance_futures:BTCUSDT:funding:") for r in rows))
+        rows = lake.read_bronze_rows(
+            config.LAKE_DATASET_FUNDING, data_lake_uri=self.uri
+        )
+        self.assertTrue(
+            all(
+                r["source_record_id"].startswith("binance_futures:BTCUSDT:funding:")
+                for r in rows
+            )
+        )
 
     def test_no_signed_or_order_endpoints(self):
         source = Path(ohlcv.__file__).read_text(encoding="utf-8")

@@ -1,4 +1,5 @@
 """Data-quality guards and market-time handling for book-stock-data."""
+
 from __future__ import annotations
 
 import contextlib
@@ -39,8 +40,14 @@ class QuoteFromChartTests(unittest.TestCase):
         # 2026-08-01T20:00:00Z; a local-time render would shift it by the host offset.
         quote = ingest.quote_from_chart(
             "AAPL",
-            _chart({"regularMarketPrice": 101.0, "chartPreviousClose": 100.0,
-                    "regularMarketTime": 1785614400, "currency": "USD"}),
+            _chart(
+                {
+                    "regularMarketPrice": 101.0,
+                    "chartPreviousClose": 100.0,
+                    "regularMarketTime": 1785614400,
+                    "currency": "USD",
+                }
+            ),
         )
         self.assertEqual(quote["timestamp"], "2026-08-01 20:00:00")
         self.assertEqual(quote["change"], 1.0)
@@ -64,9 +71,12 @@ class QuoteFromChartTests(unittest.TestCase):
 
     def test_bad_previous_close_gives_zero_change(self):
         quote = ingest.quote_from_chart(
-            "AAPL", _chart({"regularMarketPrice": 5, "chartPreviousClose": float("inf")})
+            "AAPL",
+            _chart({"regularMarketPrice": 5, "chartPreviousClose": float("inf")}),
         )
-        self.assertEqual((quote["prev_close"], quote["change"], quote["change_pct"]), (0, 0, 0))
+        self.assertEqual(
+            (quote["prev_close"], quote["change"], quote["change_pct"]), (0, 0, 0)
+        )
         self.assertEqual(quote["timestamp"], "")
 
 
@@ -81,7 +91,9 @@ class QuoteRecordQualityTests(unittest.TestCase):
             _quote("", 10.0),
             _quote("AMD", "150.25"),
         ]
-        records, rejected = lake.quote_records_with_report(quotes, event_time=EVENT_TIME)
+        records, rejected = lake.quote_records_with_report(
+            quotes, event_time=EVENT_TIME
+        )
         self.assertEqual([r["id"] for r in records], ["AAPL", "AMD"])
         self.assertEqual(records[0]["price"], 190.5)
         self.assertEqual(records[0]["change_pct"], "")
@@ -89,7 +101,9 @@ class QuoteRecordQualityTests(unittest.TestCase):
             quality.summarize_rejections(rejected),
             {"duplicate_id": 1, "invalid_price": 3, "missing_symbol": 1},
         )
-        self.assertEqual(lake.quote_records_from_api(quotes, event_time=EVENT_TIME), records)
+        self.assertEqual(
+            lake.quote_records_from_api(quotes, event_time=EVENT_TIME), records
+        )
 
     def test_clean_quotes_matches_lake_filter(self):
         kept, rejected = ingest.clean_quotes(
@@ -112,7 +126,8 @@ class StaleMarketTimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             uri = str(Path(tmp) / "lake")
             seed_lake_from_quotes(
-                [_quote("AAPL", 190.5, timestamp="2026-08-01 20:00:00")], data_lake_uri=uri
+                [_quote("AAPL", 190.5, timestamp="2026-08-01 20:00:00")],
+                data_lake_uri=uri,
             )
             # A later capture that returns an older market time (e.g. a
             # stale cache over a weekend) must not win the latest selection.
@@ -121,8 +136,10 @@ class StaleMarketTimeTests(unittest.TestCase):
                 data_lake_uri=uri,
                 raw=json.dumps({"second": True}).encode(),
             )
-            with mock.patch.object(config, "DATA_LAKE_URI", uri), \
-                    mock.patch.object(config, "STALE_AFTER_HOURS", 24.0):
+            with (
+                mock.patch.object(config, "DATA_LAKE_URI", uri),
+                mock.patch.object(config, "STALE_AFTER_HOURS", 24.0),
+            ):
                 payload = load_records()
         self.assertEqual(len(payload["items"]), 1)
         item = payload["items"][0]
@@ -134,7 +151,10 @@ class StaleMarketTimeTests(unittest.TestCase):
 
 class CliValidationTests(unittest.TestCase):
     def _exit_code(self, argv: list[str]) -> int:
-        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as ctx:
+        with (
+            contextlib.redirect_stderr(io.StringIO()),
+            self.assertRaises(SystemExit) as ctx,
+        ):
             ingest.main(argv)
         return ctx.exception.code
 
@@ -160,7 +180,10 @@ class AtomicWriteTests(unittest.TestCase):
             with (out / "stock_history.csv").open(newline="", encoding="utf-8") as f:
                 rows = list(csv.DictReader(f))
             self.assertEqual([r["symbol"] for r in rows], ["AAPL", "MSFT"])
-            self.assertEqual(sorted(p.name for p in out.iterdir()), ["stock_history.csv", "stock_prices.csv"])
+            self.assertEqual(
+                sorted(p.name for p in out.iterdir()),
+                ["stock_history.csv", "stock_prices.csv"],
+            )
 
     def test_failed_write_keeps_previous_file(self):
         with tempfile.TemporaryDirectory() as tmp:

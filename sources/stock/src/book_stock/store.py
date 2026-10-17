@@ -3,6 +3,7 @@
 Primary path: Bronze Parquet via DuckDB (shared product_store helpers).
 CSV under data/ is optional CLI projection only.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,6 +24,7 @@ def _load_product_store():
                 sys.path.insert(0, str(scripts))
             break
     from data_lake import product_store as ps  # type: ignore
+
     return ps
 
 
@@ -235,7 +237,9 @@ def load_csv_projection(
     data_dir: Optional[Path] = None,
 ) -> dict[str, Any]:
     data_dir = Path(data_dir or config.DATA_DIR)
-    path = data_dir / (config.HISTORY_FILE if kind == "history" else config.RECORDS_FILE)
+    path = data_dir / (
+        config.HISTORY_FILE if kind == "history" else config.RECORDS_FILE
+    )
     return _ps_mod().load_csv_projection(
         path=path,
         id_fields=config.ID_FIELDS,
@@ -295,6 +299,10 @@ def seed_lake_from_quotes(
         metadata={"seed": "sample", "dataset_role": "history"},
     )
     if data_dir is not None:
-        lake.write_lineage(prices, dataset=config.LAKE_DATASET_PRICES, data_dir=data_dir)
-        lake.write_lineage(history, dataset=config.LAKE_DATASET_HISTORY, data_dir=data_dir)
+        lake.write_lineage(
+            prices, dataset=config.LAKE_DATASET_PRICES, data_dir=data_dir
+        )
+        lake.write_lineage(
+            history, dataset=config.LAKE_DATASET_HISTORY, data_dir=data_dir
+        )
     return {"prices": prices, "history": history}

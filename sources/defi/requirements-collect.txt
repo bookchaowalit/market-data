@@ -1,1 +1,5 @@
 httpx>=0.27.0
+# Security floors for httpx's transitive dependencies (OSV: PYSEC-2026-4024/4025 in anyio,
+# PYSEC-2026-215 in idna).
+anyio>=4.14.2
+idna>=3.15

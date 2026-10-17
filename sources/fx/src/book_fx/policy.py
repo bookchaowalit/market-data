@@ -1,4 +1,5 @@
 """Free-only provider policy for book-fx-data."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,8 +9,14 @@ from . import config
 
 
 PROVIDERS: dict[str, dict[str, str]] = {
-    'frankfurter_public': {'status': 'free', 'reason': 'Frankfurter free API with ECB rates; no key'},
-    'paid_fx_feed': {'status': 'blocked', 'reason': 'Paid FX feeds disabled by free-only policy'},
+    "frankfurter_public": {
+        "status": "free",
+        "reason": "Frankfurter free API with ECB rates; no key",
+    },
+    "paid_fx_feed": {
+        "status": "blocked",
+        "reason": "Paid FX feeds disabled by free-only policy",
+    },
 }
 
 

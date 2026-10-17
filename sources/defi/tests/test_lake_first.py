@@ -1,4 +1,5 @@
 """Lake-first tests for book-defi-data (shared adapter + pool identity)."""
+
 from __future__ import annotations
 
 import json
@@ -39,7 +40,6 @@ SAMPLE_POOLS = [
         "url": "https://example.com/compound",
     },
 ]
-
 
 
 def _shared_adapter_available() -> bool:
@@ -134,7 +134,9 @@ class LakeFirstOrderingTests(unittest.TestCase):
                 }
 
             with mock.patch.object(lake, "ingest_to_lake", side_effect=fake_ingest):
-                with mock.patch.object(lake, "write_lineage", return_value=out / "l.json"):
+                with mock.patch.object(
+                    lake, "write_lineage", return_value=out / "l.json"
+                ):
                     with mock.patch(
                         "book_defi.ingest.fetch_pools_raw",
                         return_value=(raw, SAMPLE_POOLS),
@@ -145,8 +147,9 @@ class LakeFirstOrderingTests(unittest.TestCase):
                         ):
                             with mock.patch(
                                 "book_defi.ingest.project_yields_csv",
-                                side_effect=lambda *_a, **_k: order.append("csv")
-                                or (out / "defi_yields.csv"),
+                                side_effect=lambda *_a, **_k: (
+                                    order.append("csv") or (out / "defi_yields.csv")
+                                ),
                             ):
                                 run_live_ingest(
                                     chains=["Ethereum"],
@@ -158,7 +161,9 @@ class LakeFirstOrderingTests(unittest.TestCase):
                                 )
             self.assertEqual(order[0], f"lake:{config.LAKE_DATASET_YIELDS}")
             self.assertIn("csv", order)
-            self.assertLess(order.index(f"lake:{config.LAKE_DATASET_YIELDS}"), order.index("csv"))
+            self.assertLess(
+                order.index(f"lake:{config.LAKE_DATASET_YIELDS}"), order.index("csv")
+            )
 
 
 @unittest.skipUnless(
@@ -176,7 +181,9 @@ class RealLakeIngestTests(unittest.TestCase):
             lake_uri = str(Path(tmp) / "lake")
             out = Path(tmp) / "proj"
             out.mkdir()
-            raw = json.dumps({"data": SAMPLE_POOLS}, separators=(",", ":")).encode("utf-8")
+            raw = json.dumps({"data": SAMPLE_POOLS}, separators=(",", ":")).encode(
+                "utf-8"
+            )
             records = lake.yield_records_from_pools(SAMPLE_POOLS)
             result = lake.ingest_to_lake(
                 raw=raw,

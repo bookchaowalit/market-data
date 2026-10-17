@@ -1,4 +1,5 @@
 """Offline tests for book-crypto-data free-only API + policy."""
+
 from __future__ import annotations
 
 import json
@@ -118,7 +119,9 @@ class StoreLakeTests(unittest.TestCase):
             with _set_lake_uri(lake_uri):
                 payload = load_records()
             self.assertEqual(payload["source_kind"], "bronze_parquet")
-            self.assertEqual(payload["data_status"], "stale")  # fixed past last_updated_at
+            self.assertEqual(
+                payload["data_status"], "stale"
+            )  # fixed past last_updated_at
             self.assertGreaterEqual(len(payload["items"]), 1)
             self.assertIn("record_id", payload["items"][0])
             self.assertNotIn("crypto_prices.csv", payload["path"])
@@ -166,7 +169,10 @@ class StoreLakeTests(unittest.TestCase):
                 hist = load_history()
             self.assertEqual(hist["source_kind"], "bronze_parquet")
             self.assertGreaterEqual(len(hist["items"]), 1)
-            self.assertTrue(str(hist["items"][0]["record_id"]).endswith("#h0") or "#h" in hist["items"][0]["record_id"])
+            self.assertTrue(
+                str(hist["items"][0]["record_id"]).endswith("#h0")
+                or "#h" in hist["items"][0]["record_id"]
+            )
 
     def test_iceberg_mode_keeps_item_parity_with_bronze(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -180,8 +186,12 @@ class StoreLakeTests(unittest.TestCase):
 
             with _set_lake_uri(lake_uri), _set_read_mode("parquet"):
                 expected = load_records()
-            with _set_lake_uri(lake_uri), _set_read_mode("iceberg"), mock.patch.object(
-                lake, "read_iceberg_rows", side_effect=read_catalog_rows
+            with (
+                _set_lake_uri(lake_uri),
+                _set_read_mode("iceberg"),
+                mock.patch.object(
+                    lake, "read_iceberg_rows", side_effect=read_catalog_rows
+                ),
             ):
                 actual = load_records()
 
@@ -194,10 +204,14 @@ class StoreLakeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             lake_uri = str(Path(tmp) / "lake")
             seed_lake_from_sample(SAMPLE_API, ["usd"], data_lake_uri=lake_uri)
-            with _set_lake_uri(lake_uri), _set_read_mode("iceberg", "parquet"), mock.patch.object(
-                lake,
-                "read_iceberg_rows",
-                side_effect=lake.LakeUnavailable("catalog temporarily unavailable"),
+            with (
+                _set_lake_uri(lake_uri),
+                _set_read_mode("iceberg", "parquet"),
+                mock.patch.object(
+                    lake,
+                    "read_iceberg_rows",
+                    side_effect=lake.LakeUnavailable("catalog temporarily unavailable"),
+                ),
             ):
                 payload = load_records()
 
@@ -210,10 +224,14 @@ class StoreLakeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             lake_uri = str(Path(tmp) / "lake")
             seed_lake_from_sample(SAMPLE_API, ["usd"], data_lake_uri=lake_uri)
-            with _set_lake_uri(lake_uri), _set_read_mode("iceberg", "error"), mock.patch.object(
-                lake,
-                "read_iceberg_rows",
-                side_effect=lake.LakeUnavailable("catalog credentials unavailable"),
+            with (
+                _set_lake_uri(lake_uri),
+                _set_read_mode("iceberg", "error"),
+                mock.patch.object(
+                    lake,
+                    "read_iceberg_rows",
+                    side_effect=lake.LakeUnavailable("catalog credentials unavailable"),
+                ),
             ):
                 payload = load_records()
 
@@ -244,7 +262,11 @@ class StoreLakeTests(unittest.TestCase):
             (root / "data" / config.RECORDS_FILE).write_text(
                 "coin_id,currency,price\npoison,usd,1\n", encoding="utf-8"
             )
-            with _set_lake_uri(lake_uri), _set_data_dir(root / "data"), _set_silver_mode("silver"):
+            with (
+                _set_lake_uri(lake_uri),
+                _set_data_dir(root / "data"),
+                _set_silver_mode("silver"),
+            ):
                 payload = load_records(root / "data")
             self.assertEqual(payload["source_kind"], "silver_parquet")
             self.assertEqual(payload["silver_read_mode"], "silver")
@@ -299,25 +321,36 @@ class CsvProjectionOnlyTests(unittest.TestCase):
 
 class PolicyTests(unittest.TestCase):
     def test_free_only_blocks_paid(self):
-        with mock.patch.object(config, "FREE_ONLY", True), mock.patch.object(config, "ALLOW_PAID_PROVIDERS", False):
+        with (
+            mock.patch.object(config, "FREE_ONLY", True),
+            mock.patch.object(config, "ALLOW_PAID_PROVIDERS", False),
+        ):
             decision = policy.evaluate_provider("coingecko_pro")
             self.assertFalse(decision.allowed)
             self.assertIn(decision.status, {"blocked", "unknown"})
 
     def test_free_provider_allowed(self):
-        with mock.patch.object(config, "FREE_ONLY", True), mock.patch.object(config, "ALLOW_PAID_PROVIDERS", False):
+        with (
+            mock.patch.object(config, "FREE_ONLY", True),
+            mock.patch.object(config, "ALLOW_PAID_PROVIDERS", False),
+        ):
             decision = policy.evaluate_provider("coingecko_public")
             self.assertTrue(decision.allowed)
             self.assertEqual(decision.status, "free")
 
     def test_missing_credentials(self):
-        with mock.patch.dict(os.environ, {"FIRECRAWL_API_KEY": "", "TEQUILA_API_KEY": ""}, clear=False):
+        with mock.patch.dict(
+            os.environ, {"FIRECRAWL_API_KEY": "", "TEQUILA_API_KEY": ""}, clear=False
+        ):
             status = policy.missing_credential_status("FIRECRAWL_API_KEY")
             self.assertEqual(status["status"], "missing")
             self.assertFalse(status["present"])
 
     def test_external_writes_blocked(self):
-        with mock.patch.object(config, "FREE_ONLY", True), mock.patch.object(config, "ALLOW_EXTERNAL_WRITES", False):
+        with (
+            mock.patch.object(config, "FREE_ONLY", True),
+            mock.patch.object(config, "ALLOW_EXTERNAL_WRITES", False),
+        ):
             self.assertFalse(policy.external_writes_allowed())
             with self.assertRaises(PermissionError):
                 policy.require_external_writes("telegram")
@@ -325,9 +358,14 @@ class PolicyTests(unittest.TestCase):
 
 class HttpClientTests(unittest.TestCase):
     def test_blocks_paid_provider_before_request(self):
-        with mock.patch.object(config, "FREE_ONLY", True), mock.patch.object(config, "ALLOW_PAID_PROVIDERS", False):
+        with (
+            mock.patch.object(config, "FREE_ONLY", True),
+            mock.patch.object(config, "ALLOW_PAID_PROVIDERS", False),
+        ):
             with self.assertRaises(PermissionError):
-                request_json("GET", "https://example.invalid/paid", provider="coingecko_pro")
+                request_json(
+                    "GET", "https://example.invalid/paid", provider="coingecko_pro"
+                )
 
     def test_timeout(self):
         if policy.evaluate_provider("coingecko_public").allowed is False:
@@ -339,7 +377,10 @@ class HttpClientTests(unittest.TestCase):
 
         fake_httpx = mock.Mock()
         fake_httpx.request = Boom().request
-        with mock.patch("book_crypto.http_client.httpx", fake_httpx), mock.patch.object(config, "MAX_RETRIES", 0):
+        with (
+            mock.patch("book_crypto.http_client.httpx", fake_httpx),
+            mock.patch.object(config, "MAX_RETRIES", 0),
+        ):
             with self.assertRaises(UpstreamError) as ctx:
                 request_json(
                     "GET",
@@ -358,7 +399,10 @@ class HttpClientTests(unittest.TestCase):
         resp.content = b"rate limited"
         fake_httpx = mock.Mock()
         fake_httpx.request.return_value = resp
-        with mock.patch("book_crypto.http_client.httpx", fake_httpx), mock.patch.object(config, "MAX_RETRIES", 0):
+        with (
+            mock.patch("book_crypto.http_client.httpx", fake_httpx),
+            mock.patch.object(config, "MAX_RETRIES", 0),
+        ):
             with self.assertRaises(UpstreamError) as ctx:
                 request_json(
                     "GET",
@@ -380,7 +424,9 @@ class HttpClientTests(unittest.TestCase):
         fake_httpx.request.return_value = resp
         with mock.patch("book_crypto.http_client.httpx", fake_httpx):
             with self.assertRaises(UpstreamError):
-                request_json("GET", "https://example.invalid/bad", provider="coingecko_public")
+                request_json(
+                    "GET", "https://example.invalid/bad", provider="coingecko_public"
+                )
 
 
 @unittest.skipUnless(
@@ -445,12 +491,21 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["repository"], config.REPO_NAME)
-        self.assertIn(body["data_status"], {"ok", "empty", "stale", "malformed", "error"})
+        self.assertIn(
+            body["data_status"], {"ok", "empty", "stale", "malformed", "error"}
+        )
 
     def test_metadata_envelope(self):
         status, body = self._get("/v1/metadata")
         self.assertEqual(status, 200)
-        for key in ("schema_version", "source", "retrieved_at", "data_status", "items", "next_cursor"):
+        for key in (
+            "schema_version",
+            "source",
+            "retrieved_at",
+            "data_status",
+            "items",
+            "next_cursor",
+        ):
             self.assertIn(key, body)
         self.assertEqual(body["schema_version"], config.SCHEMA_VERSION)
         self.assertEqual(body["source"], config.REPO_NAME)
@@ -467,8 +522,9 @@ class ApiContractTests(unittest.TestCase):
         def read_catalog_rows(dataset, *, data_lake_uri=None, sql=None):
             return lake.read_bronze_rows(dataset, data_lake_uri=data_lake_uri, sql=sql)
 
-        with _set_read_mode("iceberg"), mock.patch.object(
-            lake, "read_iceberg_rows", side_effect=read_catalog_rows
+        with (
+            _set_read_mode("iceberg"),
+            mock.patch.object(lake, "read_iceberg_rows", side_effect=read_catalog_rows),
         ):
             status, body = self._get("/v1/metadata")
 

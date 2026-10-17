@@ -1,4 +1,5 @@
 """Free-only provider policy for book-defi-data."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,8 +9,14 @@ from . import config
 
 
 PROVIDERS: dict[str, dict[str, str]] = {
-    'defillama_public': {'status': 'free', 'reason': 'DeFiLlama yields API open tier; no key'},
-    'defillama_pro': {'status': 'blocked', 'reason': 'DeFiLlama Pro subscription features disabled'},
+    "defillama_public": {
+        "status": "free",
+        "reason": "DeFiLlama yields API open tier; no key",
+    },
+    "defillama_pro": {
+        "status": "blocked",
+        "reason": "DeFiLlama Pro subscription features disabled",
+    },
 }
 
 

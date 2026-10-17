@@ -1,4 +1,5 @@
 """Edge-case regressions: overflowing numbers, invalid optional metrics, booleans."""
+
 from __future__ import annotations
 
 import json
@@ -24,8 +25,13 @@ NOW = datetime(2026, 8, 1, 12, tzinfo=timezone.utc)
 
 def _pool(pool_id: str, **extra) -> dict:
     return {
-        "pool": pool_id, "project": "aave-v3", "symbol": "USDC", "chain": "Ethereum",
-        "tvlUsd": 5_000_000, "apy": 6.5, **extra,
+        "pool": pool_id,
+        "project": "aave-v3",
+        "symbol": "USDC",
+        "chain": "Ethereum",
+        "tvlUsd": 5_000_000,
+        "apy": 6.5,
+        **extra,
     }
 
 
@@ -48,18 +54,29 @@ class ParsePayloadTests(unittest.TestCase):
 
     def test_invalid_optional_metric_blanks_instead_of_aborting(self) -> None:
         rows = self._parse(
-            [_pool("a", apyBase=float("nan")), _pool("b", apyReward="n/a"), _pool("c", apyPct1D=10**400)]
+            [
+                _pool("a", apyBase=float("nan")),
+                _pool("b", apyReward="n/a"),
+                _pool("c", apyPct1D=10**400),
+            ]
         )
         self.assertEqual([r["pool_id"] for r in rows], ["a", "b", "c"])
-        self.assertEqual((rows[0]["apy_base"], rows[1]["apy_reward"], rows[2]["apy_1d"]), ("", "", ""))
+        self.assertEqual(
+            (rows[0]["apy_base"], rows[1]["apy_reward"], rows[2]["apy_1d"]),
+            ("", "", ""),
+        )
 
     def test_overflowing_required_value_drops_only_that_pool(self) -> None:
         rows = self._parse([_pool("a", tvlUsd=10**400), _pool("b")])
         self.assertEqual([r["pool_id"] for r in rows], ["b"])
 
     def test_string_false_is_not_a_stablecoin(self) -> None:
-        rows = self._parse([_pool("a", stablecoin="false"), _pool("b", stablecoin=True)])
-        self.assertEqual({r["pool_id"]: r["stablecoin"] for r in rows}, {"a": False, "b": True})
+        rows = self._parse(
+            [_pool("a", stablecoin="false"), _pool("b", stablecoin=True)]
+        )
+        self.assertEqual(
+            {r["pool_id"]: r["stablecoin"] for r in rows}, {"a": False, "b": True}
+        )
 
 
 class EnvBoolTests(unittest.TestCase):

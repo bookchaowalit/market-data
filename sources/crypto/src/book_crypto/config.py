@@ -1,4 +1,5 @@
 """Runtime configuration for book-crypto-data."""
+
 from __future__ import annotations
 
 import os
@@ -9,15 +10,15 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", str(PROJECT_ROOT / "data")))
 FIXTURES_DIR = Path(os.environ.get("FIXTURES_DIR", str(PROJECT_ROOT / "fixtures")))
 
-REPO_NAME = 'book-crypto-data'
-DOMAIN = 'crypto'
-SCHEMA_VERSION = 'crypto.v1'
-RECORDS_FILE = 'crypto_prices.csv'
-HISTORY_FILE = 'crypto_history.csv'
-TRENDING_FILE = 'crypto_trending.csv'
-LINEAGE_FILE = 'lake_lineage.json'
-ID_FIELDS = ['coin_id', 'currency']
-ID_SEP = ':'
+REPO_NAME = "book-crypto-data"
+DOMAIN = "crypto"
+SCHEMA_VERSION = "crypto.v1"
+RECORDS_FILE = "crypto_prices.csv"
+HISTORY_FILE = "crypto_history.csv"
+TRENDING_FILE = "crypto_trending.csv"
+LINEAGE_FILE = "lake_lineage.json"
+ID_FIELDS = ["coin_id", "currency"]
+ID_SEP = ":"
 
 # Lake-first contract (Bronze envelope schema_version stays "1").
 # Product envelope schema_version remains SCHEMA_VERSION (crypto.v1).

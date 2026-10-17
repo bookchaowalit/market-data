@@ -38,25 +38,65 @@ MAX_CHAINS = 10
 MAX_LIMIT = 500
 CHAIN_ALIASES = {"optimism": "OP Mainnet"}
 KNOWN_CHAINS = {
-    "Arbitrum", "Aurora", "Avalanche", "Base", "BSC", "Ethereum", "Fantom",
-    "Gnosis", "Kava", "Moonbeam", "Near", "OP Mainnet", "Polygon", "Solana",
+    "Arbitrum",
+    "Aurora",
+    "Avalanche",
+    "Base",
+    "BSC",
+    "Ethereum",
+    "Fantom",
+    "Gnosis",
+    "Kava",
+    "Moonbeam",
+    "Near",
+    "OP Mainnet",
+    "Polygon",
+    "Solana",
     "Sui",
 }
 OUTPUT_STEM_RE = re.compile(r"^[a-z0-9_]+$")
 
 SNAPSHOT_FIELDS = [
-    "captured_at", "pool_id", "project", "symbol", "chain", "tvl_usd", "apy",
-    "apy_base", "apy_reward", "apy_1d", "apy_7d", "apy_30d", "stablecoin",
-    "il_risk", "exposure", "pool_meta", "source", "source_url", "provider_updated_at",
+    "captured_at",
+    "pool_id",
+    "project",
+    "symbol",
+    "chain",
+    "tvl_usd",
+    "apy",
+    "apy_base",
+    "apy_reward",
+    "apy_1d",
+    "apy_7d",
+    "apy_30d",
+    "stablecoin",
+    "il_risk",
+    "exposure",
+    "pool_meta",
+    "source",
+    "source_url",
+    "provider_updated_at",
 ]
 HISTORY_FIELDS = [
-    "captured_at", "pool_id", "project", "symbol", "chain", "tvl_usd", "apy",
-    "provider_updated_at", "source",
+    "captured_at",
+    "pool_id",
+    "project",
+    "symbol",
+    "chain",
+    "tvl_usd",
+    "apy",
+    "provider_updated_at",
+    "source",
 ]
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _as_values(values: Iterable[str] | str | None, default: list[str]) -> list[str]:
@@ -148,7 +188,12 @@ def _provider_datetime(value: str) -> datetime:
 
 
 def normalize_provider_timestamp(value: str) -> str:
-    return _provider_datetime(value).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        _provider_datetime(value)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def validate_freshness(
@@ -192,12 +237,18 @@ def parse_payload(
         raise ValueError("APY thresholds must satisfy 0 <= min_apy <= max_apy")
     if minimum_tvl <= 0:
         raise ValueError("min_tvl_usd must be greater than zero")
-    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_LIMIT:
+    if (
+        isinstance(limit, bool)
+        or not isinstance(limit, int)
+        or not 1 <= limit <= MAX_LIMIT
+    ):
         raise ValueError(f"limit must be an integer from 1 to {MAX_LIMIT}")
     maximum_age = _finite_number(max_age_hours, "max_age_hours")
     if maximum_age <= 0:
         raise ValueError("max_age_hours must be greater than zero")
-    canonical_provider_time = validate_freshness(provider_updated_at, maximum_age, now=now)
+    canonical_provider_time = validate_freshness(
+        provider_updated_at, maximum_age, now=now
+    )
     if not isinstance(payload, dict):
         raise ValueError("DefiLlama response must be a JSON object")
     if str(payload.get("status", "")).casefold() != "success":
@@ -251,7 +302,9 @@ def parse_payload(
             }
         )
 
-    rows.sort(key=lambda row: (-float(row["apy"]), -float(row["tvl_usd"]), row["pool_id"]))
+    rows.sort(
+        key=lambda row: (-float(row["apy"]), -float(row["tvl_usd"]), row["pool_id"])
+    )
     return rows[:limit]
 
 
@@ -261,8 +314,7 @@ def fetch_pools(api_url: str = API_URL) -> tuple[bytes, dict[str, Any], str]:
         headers={
             # DefiLlama rejects python-httpx / custom UAs with a non-JSON Allow body.
             "User-Agent": (
-                "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) "
-                "Gecko/20100101 Firefox/128.0"
+                "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
             ),
             "Accept": "application/json",
         },
@@ -284,7 +336,9 @@ def fetch_pools(api_url: str = API_URL) -> tuple[bytes, dict[str, Any], str]:
     return response.content, payload, normalize_provider_timestamp(provider_updated_at)
 
 
-def write_raw(raw: bytes, provider_updated_at: str, output_dir: Path, stem: str) -> Path:
+def write_raw(
+    raw: bytes, provider_updated_at: str, output_dir: Path, stem: str
+) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"{stem}_raw.json"
     payload = {"provider_updated_at": provider_updated_at, "payload": json.loads(raw)}
@@ -292,23 +346,31 @@ def write_raw(raw: bytes, provider_updated_at: str, output_dir: Path, stem: str)
     return path
 
 
-def write_snapshot(rows: list[dict[str, Any]], captured_at: str, output_dir: Path, stem: str) -> Path:
+def write_snapshot(
+    rows: list[dict[str, Any]], captured_at: str, output_dir: Path, stem: str
+) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"{stem}.csv"
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=SNAPSHOT_FIELDS, extrasaction="ignore")
+        writer = csv.DictWriter(
+            handle, fieldnames=SNAPSHOT_FIELDS, extrasaction="ignore"
+        )
         writer.writeheader()
         for row in rows:
             writer.writerow({**row, "captured_at": captured_at})
     return path
 
 
-def append_history(rows: list[dict[str, Any]], captured_at: str, output_dir: Path, stem: str) -> Path:
+def append_history(
+    rows: list[dict[str, Any]], captured_at: str, output_dir: Path, stem: str
+) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"{stem}_history.csv"
     exists = path.exists()
     with path.open("a", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=HISTORY_FIELDS, extrasaction="ignore")
+        writer = csv.DictWriter(
+            handle, fieldnames=HISTORY_FIELDS, extrasaction="ignore"
+        )
         if not exists:
             writer.writeheader()
         for row in rows:
@@ -341,15 +403,25 @@ class DeFiYieldScraper:
             raise ValueError("APY thresholds must satisfy 0 <= min_apy <= max_apy")
         if self.min_tvl_usd <= 0:
             raise ValueError("min_tvl_usd must be greater than zero")
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_LIMIT:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= MAX_LIMIT
+        ):
             raise ValueError(f"limit must be an integer from 1 to {MAX_LIMIT}")
-        if isinstance(min_rows, bool) or not isinstance(min_rows, int) or not 1 <= min_rows <= limit:
+        if (
+            isinstance(min_rows, bool)
+            or not isinstance(min_rows, int)
+            or not 1 <= min_rows <= limit
+        ):
             raise ValueError(f"min_rows must be an integer from 1 to {limit}")
         self.max_age_hours = _finite_number(max_age_hours, "max_age_hours")
         if self.max_age_hours <= 0:
             raise ValueError("max_age_hours must be greater than zero")
         if not OUTPUT_STEM_RE.fullmatch(output_stem):
-            raise ValueError("output_stem must contain only lowercase letters, numbers, and underscores")
+            raise ValueError(
+                "output_stem must contain only lowercase letters, numbers, and underscores"
+            )
         self.limit = limit
         self.min_rows = min_rows
         self.output_stem = output_stem
@@ -369,21 +441,31 @@ class DeFiYieldScraper:
             max_age_hours=self.max_age_hours,
         )
         if len(rows) < self.min_rows:
-            raise ValueError(f"DefiLlama capture produced only {len(rows)} pools; need at least {self.min_rows}")
+            raise ValueError(
+                f"DefiLlama capture produced only {len(rows)} pools; need at least {self.min_rows}"
+            )
         captured_at = _utc_now()
-        raw_path = write_raw(raw, provider_updated_at, self.output_dir, self.output_stem)
-        snapshot_path = write_snapshot(rows, captured_at, self.output_dir, self.output_stem)
-        history_path = append_history(rows, captured_at, self.output_dir, self.output_stem)
+        raw_path = write_raw(
+            raw, provider_updated_at, self.output_dir, self.output_stem
+        )
+        snapshot_path = write_snapshot(
+            rows, captured_at, self.output_dir, self.output_stem
+        )
+        history_path = append_history(
+            rows, captured_at, self.output_dir, self.output_stem
+        )
         print(f"[{self.output_stem}] {len(rows)} pools -> {snapshot_path}")
-        return [{
-            "source": self.output_stem,
-            "count": len(rows),
-            "chains": self.chains,
-            "provider_updated_at": provider_updated_at,
-            "output": str(snapshot_path),
-            "history": str(history_path),
-            "raw": str(raw_path),
-        }]
+        return [
+            {
+                "source": self.output_stem,
+                "count": len(rows),
+                "chains": self.chains,
+                "provider_updated_at": provider_updated_at,
+                "output": str(snapshot_path),
+                "history": str(history_path),
+                "raw": str(raw_path),
+            }
+        ]
 
 
 if __name__ == "__main__":

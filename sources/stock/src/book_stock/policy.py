@@ -1,4 +1,5 @@
 """Free-only provider policy for book-stock-data."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,8 +9,14 @@ from . import config
 
 
 PROVIDERS: dict[str, dict[str, str]] = {
-    'yahoo_public': {'status': 'free', 'reason': 'Yahoo chart endpoint; unofficial, terms/availability caveat'},
-    'paid_market_data': {'status': 'blocked', 'reason': 'Paid market-data APIs disabled by free-only policy'},
+    "yahoo_public": {
+        "status": "free",
+        "reason": "Yahoo chart endpoint; unofficial, terms/availability caveat",
+    },
+    "paid_market_data": {
+        "status": "blocked",
+        "reason": "Paid market-data APIs disabled by free-only policy",
+    },
 }
 
 

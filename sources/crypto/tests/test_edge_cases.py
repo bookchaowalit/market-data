@@ -1,4 +1,5 @@
 """Edge-case regressions: overflowing numbers, bad epoch values, CSV text, ids."""
+
 from __future__ import annotations
 
 import csv
@@ -43,13 +44,18 @@ class KlineEdgeCases(unittest.TestCase):
         payload.append(_bar(-(10**15), T0))
         payload.append(_bar(T0 + HOUR, trades=2.5))
         payload.append(_bar(T0 + 2 * HOUR, trades=True))
-        records = ohlcv.kline_records(payload, venue="v", symbol="S", interval="1h", now_ms=NOW)
+        records = ohlcv.kline_records(
+            payload, venue="v", symbol="S", interval="1h", now_ms=NOW
+        )
         self.assertEqual([r["open_time_ms"] for r in records], [T0])
 
     def test_float_encoded_times_are_accepted(self) -> None:
         records = ohlcv.kline_records(
             [_bar(str(float(T0)), str(float(T0 + HOUR - 1)))],
-            venue="v", symbol="S", interval="1h", now_ms=NOW,
+            venue="v",
+            symbol="S",
+            interval="1h",
+            now_ms=NOW,
         )
         self.assertEqual(records[0]["open_time_ms"], T0)
 
@@ -73,7 +79,9 @@ class CsvAndIdEdgeCases(unittest.TestCase):
             path.write_text("﻿" + buf.getvalue(), encoding="utf-8", newline="")
             rows, error = store._read_csv(path)
         self.assertIsNone(error)
-        self.assertEqual(rows, [{"coin": "btc", "note": "a b"}, {"coin": "eth", "note": "c"}])
+        self.assertEqual(
+            rows, [{"coin": "btc", "note": "a b"}, {"coin": "eth", "note": "c"}]
+        )
 
     def test_decoded_id_with_percent_is_not_decoded_again(self) -> None:
         payload = {"items": [{"record_id": "x%41"}, {"record_id": "xA"}]}
@@ -99,6 +107,7 @@ class EnvBoolTests(unittest.TestCase):
             self.assertIs(self._parse(raw, False), True)
         for raw in ("0", "False", " no", "OFF"):
             self.assertIs(self._parse(raw, True), False)
+
 
 if __name__ == "__main__":
     unittest.main()

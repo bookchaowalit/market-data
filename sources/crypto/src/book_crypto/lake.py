@@ -7,6 +7,7 @@ Shared procedure:
   learning/platform-engineering/app-cli-data-lake-playbook.md
   docs/systems/data-lake-architecture.md
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -26,7 +27,11 @@ def _load_shared():
     Falls back to a data-lake checkout named by ``SOLO_DATA_LAKE_ROOT``.
     """
     if importlib.util.find_spec("data_lake") is None and config.SOLO_DATA_LAKE_ROOT:
-        scripts = Path(config.SOLO_DATA_LAKE_ROOT).expanduser().resolve() / "infra" / "scripts"
+        scripts = (
+            Path(config.SOLO_DATA_LAKE_ROOT).expanduser().resolve()
+            / "infra"
+            / "scripts"
+        )
         if not (scripts / "data_lake" / "product_adapter.py").is_file():
             raise ImportError(
                 f"SOLO_DATA_LAKE_ROOT={config.SOLO_DATA_LAKE_ROOT} has no "
@@ -177,8 +182,12 @@ def price_records_with_report(
                     "currency": curr,
                     "price": price,
                     "change_24h_pct": round(change, 2),
-                    "volume_24h": volume if quality.non_negative_number(volume) is not None else "",
-                    "market_cap": market_cap if quality.non_negative_number(market_cap) is not None else "",
+                    "volume_24h": volume
+                    if quality.non_negative_number(volume) is not None
+                    else "",
+                    "market_cap": market_cap
+                    if quality.non_negative_number(market_cap) is not None
+                    else "",
                     "event_time": coin_event_time,
                     "last_updated_at": last_updated if last_updated is not None else "",
                 }

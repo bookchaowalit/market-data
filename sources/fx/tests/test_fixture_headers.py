@@ -3,6 +3,7 @@
 ``--offline`` seeds ``fixtures/*.csv`` into ``data/``; if a projection gains a
 column the fixture silently drifts from what a real run writes.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -26,7 +27,10 @@ class FixtureHeaderTests(unittest.TestCase):
     def test_fixture_headers_match_csv_projection(self):
         projections = [
             ("project_rates_csv", lambda out: ingest.project_rates_csv(_FX_EMPTY, out)),
-            ("project_history_csv", lambda out: ingest.project_history_csv(_FX_EMPTY, out)),
+            (
+                "project_history_csv",
+                lambda out: ingest.project_history_csv(_FX_EMPTY, out),
+            ),
         ]
         for name, project in projections:
             with self.subTest(projection=name), tempfile.TemporaryDirectory() as tmp:

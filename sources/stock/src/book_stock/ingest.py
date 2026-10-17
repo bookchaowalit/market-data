@@ -184,7 +184,8 @@ def fetch_quotes_raw(symbols: list[str]) -> tuple[bytes, list[dict], dict[str, b
         "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "symbols": list(symbols),
         "responses": {
-            sym: raw.decode("utf-8", errors="replace") for sym, raw in raw_by_symbol.items()
+            sym: raw.decode("utf-8", errors="replace")
+            for sym, raw in raw_by_symbol.items()
         },
     }
     landing_bytes = json.dumps(
@@ -220,7 +221,9 @@ def project_prices_csv(quotes: list[dict], output_dir: Path) -> Path:
         "scraped_at",
     ]
     scraped = _projection_timestamp()
-    atomic_write_csv(filepath, fieldnames, ({**q, "scraped_at": scraped} for q in quotes))
+    atomic_write_csv(
+        filepath, fieldnames, ({**q, "scraped_at": scraped} for q in quotes)
+    )
     print(f"  Projected {len(quotes)} quotes → {filepath}")
     return filepath
 
@@ -240,7 +243,9 @@ def project_history_csv(quotes: list[dict], output_dir: Path) -> Path:
         "scraped_at",
     ]
     scraped = _projection_timestamp()
-    atomic_append_csv(filepath, fieldnames, ({**q, "scraped_at": scraped} for q in quotes))
+    atomic_append_csv(
+        filepath, fieldnames, ({**q, "scraped_at": scraped} for q in quotes)
+    )
     print(f"  Projected +{len(quotes)} history rows → {filepath}")
     return filepath
 
@@ -282,7 +287,9 @@ def print_alerts(quotes: list, threshold: float, prev_prices: dict):
             multi_change = (q["price"] - prev_prices[sym]) / prev_prices[sym] * 100
             if abs(multi_change) >= threshold * 2:
                 direction = "RISING" if multi_change > 0 else "FALLING"
-                print(f"    *** {sym}: {direction} {multi_change:+.2f}% since last check ***")
+                print(
+                    f"    *** {sym}: {direction} {multi_change:+.2f}% since last check ***"
+                )
                 alerted = True
     if not alerted:
         print(f"    No alerts (all moves < {threshold}%)")
@@ -357,7 +364,8 @@ def clean_quotes(quotes: list[dict]) -> tuple[list[dict], list[dict]]:
     if _lake is None:
         return list(quotes), []
     records, rejected = _lake.quote_records_with_report(
-        quotes, event_time="1970-01-01T00:00:00Z"  # timestamp unused here
+        quotes,
+        event_time="1970-01-01T00:00:00Z",  # timestamp unused here
     )
     accepted = {r["id"] for r in records}
     kept: list[dict] = []
@@ -378,7 +386,9 @@ def run_live_ingest(
     data_lake_uri: Optional[str] = None,
     project_csv: bool = True,
 ) -> dict[str, Any]:
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Stock Price Scraper (lake-first)")
+    print(
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Stock Price Scraper (lake-first)"
+    )
     print(f"  Symbols: {len(symbols)} | Alert: >{alert_threshold}%")
     if data_lake_uri:
         print(f"  Data lake: {data_lake_uri}")
@@ -389,7 +399,9 @@ def run_live_ingest(
     quotes, rejected = clean_quotes(fetched)
     print(f"  Got {len(quotes)} quotes")
     if rejected:
-        print(f"  Quality: dropped {len(rejected)} quotes {summarize_rejections(rejected)}")
+        print(
+            f"  Quality: dropped {len(rejected)} quotes {summarize_rejections(rejected)}"
+        )
     if not quotes:
         raise RuntimeError("No quotes fetched. Check network/symbols.")
 
@@ -420,7 +432,7 @@ def run_live_ingest(
     print_alerts(quotes, alert_threshold, prev_prices)
 
     print(f"\n  {'Symbol':12s} {'Price':>12s} {'Change':>10s} {'Currency':>8s}")
-    print(f"  {'-'*12} {'-'*12} {'-'*10} {'-'*8}")
+    print(f"  {'-' * 12} {'-' * 12} {'-' * 10} {'-' * 8}")
     for q in quotes:
         arrow = "+" if q["change_pct"] >= 0 else ""
         print(

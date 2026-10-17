@@ -1,4 +1,5 @@
 """Runtime configuration for book-defi-data."""
+
 from __future__ import annotations
 
 import os

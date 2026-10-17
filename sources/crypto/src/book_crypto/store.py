@@ -4,6 +4,7 @@ Primary path: Bronze Parquet via DuckDB (lake-first).
 CSV under ``data/`` is an optional CLI projection only and is not used by the
 HTTP API loaders.
 """
+
 from __future__ import annotations
 
 import csv
@@ -30,7 +31,12 @@ TIMESTAMP_KEYS = (
 
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _parse_ts(value: str) -> Optional[datetime]:
@@ -101,7 +107,9 @@ def _stringify(value: Any) -> str:
     return str(value)
 
 
-def bronze_price_item(row: dict[str, Any], *, history: bool = False, history_idx: int = 0) -> dict[str, Any]:
+def bronze_price_item(
+    row: dict[str, Any], *, history: bool = False, history_idx: int = 0
+) -> dict[str, Any]:
     """Project one Bronze envelope row into the product API item shape."""
     payload = lake.parse_payload_json(row)
     event_time = _stringify(row.get("event_time") or payload.get("event_time") or "")
@@ -126,7 +134,9 @@ def bronze_price_item(row: dict[str, Any], *, history: bool = False, history_idx
     return item
 
 
-def silver_price_item(row: dict[str, Any], *, history: bool = False, history_idx: int = 0) -> dict[str, Any]:
+def silver_price_item(
+    row: dict[str, Any], *, history: bool = False, history_idx: int = 0
+) -> dict[str, Any]:
     """Project one shared Silver row into the same API item shape as Bronze."""
     event_time = _stringify(row.get("event_time") or row.get("last_updated_at") or "")
     item: dict[str, Any] = {
@@ -239,7 +249,9 @@ def _read_silver_dataset_rows(
     data_lake_uri: str,
 ) -> tuple[list[dict[str, Any]], str]:
     rows = lake.read_silver_rows(dataset, data_lake_uri=data_lake_uri)
-    return rows, "silver_s3_parquet" if lake.is_remote_lake_uri(data_lake_uri) else "silver_parquet"
+    return rows, "silver_s3_parquet" if lake.is_remote_lake_uri(
+        data_lake_uri
+    ) else "silver_parquet"
 
 
 def _read_price_projection(
@@ -327,18 +339,16 @@ def _read_dataset_rows(
     mode = config.LAKE_READ_MODE
     fallback = config.LAKE_READ_FALLBACK
     if mode not in {"parquet", "iceberg"}:
-        raise lake.LakeIngestError(
-            "LAKE_READ_MODE must be one of: parquet, iceberg"
-        )
+        raise lake.LakeIngestError("LAKE_READ_MODE must be one of: parquet, iceberg")
     if fallback not in {"error", "parquet"}:
-        raise lake.LakeIngestError(
-            "LAKE_READ_FALLBACK must be one of: error, parquet"
-        )
+        raise lake.LakeIngestError("LAKE_READ_FALLBACK must be one of: error, parquet")
 
     if mode == "parquet":
         return (
             lake.read_bronze_rows(dataset, data_lake_uri=data_lake_uri),
-            "bronze_s3_parquet" if lake.is_remote_lake_uri(data_lake_uri) else "bronze_parquet",
+            "bronze_s3_parquet"
+            if lake.is_remote_lake_uri(data_lake_uri)
+            else "bronze_parquet",
             None,
         )
 
@@ -354,7 +364,9 @@ def _read_dataset_rows(
         rows = lake.read_bronze_rows(dataset, data_lake_uri=data_lake_uri)
         return (
             rows,
-            "bronze_s3_parquet_fallback" if lake.is_remote_lake_uri(data_lake_uri) else "bronze_parquet_fallback",
+            "bronze_s3_parquet_fallback"
+            if lake.is_remote_lake_uri(data_lake_uri)
+            else "bronze_parquet_fallback",
             f"{type(exc).__name__}: {exc}",
         )
 
@@ -398,7 +410,11 @@ def load_records(
             "data_status": "error",
             "error": str(exc),
             "path": path,
-            "source_kind": "silver_parquet" if mode == "silver" else "iceberg_rest_duckdb" if config.LAKE_READ_MODE == "iceberg" else "bronze_parquet",
+            "source_kind": "silver_parquet"
+            if mode == "silver"
+            else "iceberg_rest_duckdb"
+            if config.LAKE_READ_MODE == "iceberg"
+            else "bronze_parquet",
             "read_mode": config.LAKE_READ_MODE,
             "read_fallback": config.LAKE_READ_FALLBACK,
             "fallback_reason": None,
@@ -412,7 +428,11 @@ def load_records(
             "data_status": "malformed",
             "error": str(exc),
             "path": path,
-            "source_kind": "silver_parquet" if mode == "silver" else "iceberg_rest_duckdb" if config.LAKE_READ_MODE == "iceberg" else "bronze_parquet",
+            "source_kind": "silver_parquet"
+            if mode == "silver"
+            else "iceberg_rest_duckdb"
+            if config.LAKE_READ_MODE == "iceberg"
+            else "bronze_parquet",
             "read_mode": config.LAKE_READ_MODE,
             "read_fallback": config.LAKE_READ_FALLBACK,
             "fallback_reason": None,
@@ -457,7 +477,9 @@ def load_history(
             "data_status": "error",
             "error": str(exc),
             "path": path,
-            "source_kind": "iceberg_rest_duckdb" if config.LAKE_READ_MODE == "iceberg" else "bronze_parquet",
+            "source_kind": "iceberg_rest_duckdb"
+            if config.LAKE_READ_MODE == "iceberg"
+            else "bronze_parquet",
             "read_mode": config.LAKE_READ_MODE,
             "read_fallback": config.LAKE_READ_FALLBACK,
             "fallback_reason": None,
@@ -471,7 +493,9 @@ def load_history(
             "data_status": "malformed",
             "error": str(exc),
             "path": path,
-            "source_kind": "iceberg_rest_duckdb" if config.LAKE_READ_MODE == "iceberg" else "bronze_parquet",
+            "source_kind": "iceberg_rest_duckdb"
+            if config.LAKE_READ_MODE == "iceberg"
+            else "bronze_parquet",
             "read_mode": config.LAKE_READ_MODE,
             "read_fallback": config.LAKE_READ_FALLBACK,
             "fallback_reason": None,
@@ -605,9 +629,13 @@ def seed_fixtures(data_dir: Optional[Path] = None) -> Path:
     src_records = config.FIXTURES_DIR / config.RECORDS_FILE
     src_history = config.FIXTURES_DIR / config.HISTORY_FILE
     if src_records.exists():
-        (data_dir / config.RECORDS_FILE).write_text(src_records.read_text(encoding="utf-8"), encoding="utf-8")
+        (data_dir / config.RECORDS_FILE).write_text(
+            src_records.read_text(encoding="utf-8"), encoding="utf-8"
+        )
     if src_history.exists():
-        (data_dir / config.HISTORY_FILE).write_text(src_history.read_text(encoding="utf-8"), encoding="utf-8")
+        (data_dir / config.HISTORY_FILE).write_text(
+            src_history.read_text(encoding="utf-8"), encoding="utf-8"
+        )
     return data_dir
 
 
@@ -620,7 +648,9 @@ def seed_lake_from_sample(
 ) -> dict[str, Any]:
     """Test/dev helper: write one price batch into Bronze for API reads."""
     records = lake.price_records_from_api(sample_api, currencies)
-    raw = json.dumps(sample_api, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    raw = json.dumps(sample_api, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
     result = lake.ingest_to_lake(
         raw=raw,
         records=records,
@@ -629,5 +659,7 @@ def seed_lake_from_sample(
         metadata={"seed": "sample"},
     )
     if data_dir is not None:
-        lake.write_lineage(result, dataset=config.LAKE_DATASET_PRICES, data_dir=data_dir)
+        lake.write_lineage(
+            result, dataset=config.LAKE_DATASET_PRICES, data_dir=data_dir
+        )
     return result

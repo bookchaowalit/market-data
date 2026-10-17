@@ -1,4 +1,5 @@
 """Data-quality guards for DeFiLlama pools: NaN/inf/negatives never pass."""
+
 from __future__ import annotations
 
 import contextlib
@@ -49,7 +50,9 @@ class FilterPoolsTests(unittest.TestCase):
 
     def test_stablecoin_detection_tolerates_missing_symbol(self):
         pools = [_pool("a", symbol=None), _pool("b", symbol="usdc-weth")]
-        self.assertEqual([p["pool"] for p in ingest.detect_stablecoin_pools(pools)], ["b"])
+        self.assertEqual(
+            [p["pool"] for p in ingest.detect_stablecoin_pools(pools)], ["b"]
+        )
 
     def test_opportunities_ignore_nan_apy(self):
         opps = ingest.detect_opportunities(
@@ -67,7 +70,9 @@ class YieldRecordQualityTests(unittest.TestCase):
             ' "tvlUsd": 2000000, "apy": 7.5, "apyBase": 7.5, "apyReward": 0}]'
         )
         first = lake.yield_records_from_pools(pools[:1], event_time=EVENT_TIME)[0]
-        self.assertEqual((first["tvl_usd"], first["apy"], first["apy_base"]), ("", "", ""))
+        self.assertEqual(
+            (first["tvl_usd"], first["apy"], first["apy_base"]), ("", "", "")
+        )
         self.assertIsNone(first["apy_reward"])
         records = lake.yield_records_from_pools(pools, event_time=EVENT_TIME)
         self.assertEqual([r["id"] for r in records], ["p1"])
@@ -91,7 +96,10 @@ class CliValidationTests(unittest.TestCase):
     def test_chain_and_category_lists_deduplicated(self):
         with mock.patch.object(ingest, "run_live_ingest") as run:
             self.assertEqual(
-                ingest.main(["--chains", "Base, Base,Ethereum", "--categories", "dex,,dex"]), 0
+                ingest.main(
+                    ["--chains", "Base, Base,Ethereum", "--categories", "dex,,dex"]
+                ),
+                0,
             )
         self.assertEqual(run.call_args.kwargs["chains"], ["Base", "Ethereum"])
         self.assertEqual(run.call_args.kwargs["categories"], ["dex"])
@@ -109,9 +117,12 @@ class AtomicProjectionTests(unittest.TestCase):
                 ingest.project_history_csv(pools, out)
             self.assertIn("Projected 2 pools", buf.getvalue())
             self.assertEqual(
-                sorted(p.name for p in out.iterdir()), ["defi_yields.csv", "defi_yields_history.csv"]
+                sorted(p.name for p in out.iterdir()),
+                ["defi_yields.csv", "defi_yields_history.csv"],
             )
-            with (out / "defi_yields_history.csv").open(newline="", encoding="utf-8") as f:
+            with (out / "defi_yields_history.csv").open(
+                newline="", encoding="utf-8"
+            ) as f:
                 self.assertEqual(len(list(csv.DictReader(f))), 4)
 
     def test_failed_write_keeps_previous_file(self):

@@ -1,4 +1,5 @@
 """ECB reference-rate calendar, independent of capture/transport freshness."""
+
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
@@ -31,9 +32,17 @@ def _easter(year: int) -> date:
 def _publishing_day(day: date) -> bool:
     # TARGET closures only; national and ECB office holidays do not all close TARGET.
     easter = _easter(day.year)
-    return day.weekday() < 5 and (day.month, day.day) not in {
-        (1, 1), (5, 1), (12, 25), (12, 26),
-    } and day not in {easter - timedelta(days=2), easter + timedelta(days=1)}
+    return (
+        day.weekday() < 5
+        and (day.month, day.day)
+        not in {
+            (1, 1),
+            (5, 1),
+            (12, 25),
+            (12, 26),
+        }
+        and day not in {easter - timedelta(days=2), easter + timedelta(days=1)}
+    )
 
 
 def expected_rate_date(now: datetime) -> date:
@@ -53,7 +62,10 @@ def expected_rate_date(now: datetime) -> date:
 
 
 def apply_ecb_freshness(
-    payload: dict[str, Any], *, now: datetime | None = None, history: bool = False,
+    payload: dict[str, Any],
+    *,
+    now: datetime | None = None,
+    history: bool = False,
 ) -> dict[str, Any]:
     """Replace event-age status only for readable data; preserve failure states.
 
@@ -68,7 +80,10 @@ def apply_ecb_freshness(
     try:
         dates = [date.fromisoformat(item["date"]) for item in payload["items"]]
         # fromisoformat also accepts compact/week forms; the API contract is YYYY-MM-DD.
-        if any(item["date"] != day.isoformat() for item, day in zip(payload["items"], dates)):
+        if any(
+            item["date"] != day.isoformat()
+            for item, day in zip(payload["items"], dates)
+        ):
             raise ValueError("non-canonical provider rate date")
         if any(day > today for day in dates):
             raise ValueError("provider rate date is in the future")

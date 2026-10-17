@@ -1,4 +1,5 @@
 """Lake-first pilot tests for book-stock-data (shared product_adapter)."""
+
 from __future__ import annotations
 
 import json

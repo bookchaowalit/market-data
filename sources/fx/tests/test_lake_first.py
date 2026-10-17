@@ -1,4 +1,5 @@
 """Lake-first tests for book-fx-data (shared product_adapter)."""
+
 from __future__ import annotations
 
 import json

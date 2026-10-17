@@ -1,4 +1,5 @@
 """Lake-first pilot tests for book-crypto-data."""
+
 from __future__ import annotations
 
 import json
@@ -122,7 +123,9 @@ class LakeFirstOrderingTests(unittest.TestCase):
                 return out / "crypto_history.csv"
 
             with mock.patch.object(lake, "ingest_to_lake", side_effect=fake_ingest):
-                with mock.patch.object(lake, "write_lineage", return_value=out / "lake_lineage.json"):
+                with mock.patch.object(
+                    lake, "write_lineage", return_value=out / "lake_lineage.json"
+                ):
                     with mock.patch(
                         "book_crypto.ingest.fetch_prices",
                         return_value=(raw, SAMPLE_API),

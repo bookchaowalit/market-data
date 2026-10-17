@@ -73,9 +73,11 @@ def make_record_id(row: dict[str, Any]) -> str:
     joined = config.ID_SEP.join(parts)
     if not joined or joined == config.ID_SEP * (len(parts) - 1):
         blob = json.dumps(row, sort_keys=True, default=str)
+        # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1 -- non-cryptographic use: a short stable record ID derived from the row; changing the algorithm would change every stored ID
         return "hash:" + hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
     # URLs and other path-hostile IDs become stable hashes so /v1/records/{id} works
     if any(ch in joined for ch in ("://", "?", "#", " ")) or joined.count("/") > 0:
+        # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1 -- non-cryptographic use: a short stable record ID derived from the row; changing the algorithm would change every stored ID
         return "hash:" + hashlib.sha1(joined.encode("utf-8")).hexdigest()[:16]
     return joined.replace("/", "_")
 

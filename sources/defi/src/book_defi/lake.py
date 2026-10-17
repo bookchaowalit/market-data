@@ -159,6 +159,7 @@ def stable_pool_id(pool: dict[str, Any]) -> str:
     else:
         under = _slug(str(underlying))
     seed = f"{chain}|{project}|{symbol}|{under}"
+    # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1 -- non-cryptographic use: a short stable record ID derived from the row; changing the algorithm would change every stored ID
     digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
     return f"hash:{chain}:{project}:{digest}"
 

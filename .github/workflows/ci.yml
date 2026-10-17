@@ -1,55 +1,84 @@
+# CI + security baseline (DevSecOps Phase 1). Public repository: GitHub-hosted runners.
+# Replaces the previous per-source matrix CI; every check it ran is kept in the commands below.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
-  test:
-    name: ${{ matrix.source }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - {source: crypto, package: book_crypto, cli: book-crypto-data}
-          - {source: stock, package: book_stock, cli: book-stock-data}
-          - {source: fx, package: book_fx, cli: book-fx-data}
-          - {source: defi, package: book_defi, cli: book-defi-data}
-    defaults:
-      run:
-        working-directory: sources/${{ matrix.source }}
-    env:
-      FREE_ONLY: "true"
-      ALLOW_PAID_PROVIDERS: "false"
-      ALLOW_EXTERNAL_WRITES: "false"
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: sources/${{ matrix.source }}/pyproject.toml
-      - name: Install package with the pinned shared lake runtime
-        run: python -m pip install -e ".[lake]" pytest ruff
-      - name: Check shared lake runtime is importable
-        run: python -c "import data_lake.product_adapter, data_lake.silver"
-      - name: Lint
-        run: ruff check .
-      # The [lake] extra installs solo-empire-data-lake, so Bronze/Silver lake
-      # tests run here instead of skipping; -rs keeps any remaining skips visible.
-      - name: Tests (standalone, including lake integration)
-        run: python -m pytest -q -rs
-      - run: python -m compileall -q src
-      - run: python -m ${{ matrix.package }}.ingest --help
-      - run: ${{ matrix.cli }} --help
+  crypto:
+    uses: bookchaowalit/platform-ci-workflows/.github/workflows/ci-python.yml@c37ef9d113eefb3ed45429717cb7ca201192c3fc # v1.0.1
+    with:
+      working-directory: sources/crypto
+      python-version: "3.12"
+      # The [lake] extra installs the pinned shared lake runtime, so the Bronze/Silver lake
+      # tests run instead of skipping.
+      install-command: uv pip install -e ".[lake]" "pytest==9.1.1"
+      # Free-only guard flags as in the old CI; -rs keeps any remaining skips visible.
+      test-command: >-
+        python -c "import data_lake.product_adapter, data_lake.silver" &&
+        FREE_ONLY=true ALLOW_PAID_PROVIDERS=false ALLOW_EXTERNAL_WRITES=false python -m pytest -q -rs &&
+        python -m compileall -q src &&
+        python -m book_crypto.ingest --help &&
+        book-crypto-data --help
+
+  stock:
+    uses: bookchaowalit/platform-ci-workflows/.github/workflows/ci-python.yml@c37ef9d113eefb3ed45429717cb7ca201192c3fc # v1.0.1
+    with:
+      working-directory: sources/stock
+      python-version: "3.12"
+      # The [lake] extra installs the pinned shared lake runtime, so the Bronze/Silver lake
+      # tests run instead of skipping.
+      install-command: uv pip install -e ".[lake]" "pytest==9.1.1"
+      # Free-only guard flags as in the old CI; -rs keeps any remaining skips visible.
+      test-command: >-
+        python -c "import data_lake.product_adapter, data_lake.silver" &&
+        FREE_ONLY=true ALLOW_PAID_PROVIDERS=false ALLOW_EXTERNAL_WRITES=false python -m pytest -q -rs &&
+        python -m compileall -q src &&
+        python -m book_stock.ingest --help &&
+        book-stock-data --help
+
+  fx:
+    uses: bookchaowalit/platform-ci-workflows/.github/workflows/ci-python.yml@c37ef9d113eefb3ed45429717cb7ca201192c3fc # v1.0.1
+    with:
+      working-directory: sources/fx
+      python-version: "3.12"
+      # The [lake] extra installs the pinned shared lake runtime, so the Bronze/Silver lake
+      # tests run instead of skipping.
+      install-command: uv pip install -e ".[lake]" "pytest==9.1.1"
+      # Free-only guard flags as in the old CI; -rs keeps any remaining skips visible.
+      test-command: >-
+        python -c "import data_lake.product_adapter, data_lake.silver" &&
+        FREE_ONLY=true ALLOW_PAID_PROVIDERS=false ALLOW_EXTERNAL_WRITES=false python -m pytest -q -rs &&
+        python -m compileall -q src &&
+        python -m book_fx.ingest --help &&
+        book-fx-data --help
+
+  defi:
+    uses: bookchaowalit/platform-ci-workflows/.github/workflows/ci-python.yml@c37ef9d113eefb3ed45429717cb7ca201192c3fc # v1.0.1
+    with:
+      working-directory: sources/defi
+      python-version: "3.12"
+      # The [lake] extra installs the pinned shared lake runtime, so the Bronze/Silver lake
+      # tests run instead of skipping.
+      install-command: uv pip install -e ".[lake]" "pytest==9.1.1"
+      # Free-only guard flags as in the old CI; -rs keeps any remaining skips visible.
+      test-command: >-
+        python -c "import data_lake.product_adapter, data_lake.silver" &&
+        FREE_ONLY=true ALLOW_PAID_PROVIDERS=false ALLOW_EXTERNAL_WRITES=false python -m pytest -q -rs &&
+        python -m compileall -q src &&
+        python -m book_defi.ingest --help &&
+        book-defi-data --help
+
+  security:
+    uses: bookchaowalit/platform-ci-workflows/.github/workflows/security.yml@c37ef9d113eefb3ed45429717cb7ca201192c3fc # v1.0.1

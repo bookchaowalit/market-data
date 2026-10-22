@@ -73,6 +73,11 @@ sources pinned data-lake-core `b8f8698`, which predates its CI baseline.
 | AC-08 | `313ad0e` · `PYTHONPATH=src python -m pytest -q tests/test_yield_records.py` (defi) · `KeyError: 'pool-1'` (found by mypy: `ordered` held pool ids, `by_id` used `id#n` keys) | https://github.com/bookchaowalit/market-data/actions/runs/39755737596 (`54b1018`, success: 8 source jobs + security) |
 | AC-09 | none (characterisation; passed first run) | https://github.com/bookchaowalit/market-data/actions/runs/39755737596 (`54b1018`, success: 8 source jobs + security) |
 
+First push (`5804f6d`, run 39755563817) failed: CI v1.1.1's auto typecheck runs `mypy .`,
+which ignores `[tool.mypy] files` and checked the untyped tests, and OSV flagged certifi
+2026.7.22 (PYSEC-2026-4320) resolved from `sources/defi/requirements-collect.txt`. Fixed in
+`54b1018` with `typecheck-command: mypy` and a `certifi>=2026.10.19` floor.
+
 ## Contract findings (v2 registry, offline)
 
 - No mismatch in port map, `schema_version`, envelope keys, `data_status` values or policy

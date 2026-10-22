@@ -69,9 +69,9 @@ sources pinned data-lake-core `b8f8698`, which predates its CI baseline.
 
 | AC | Red (sha · command · failure) | Green |
 |---|---|---|
-| AC-01..07 | `313ad0e` · `PYTHONPATH=src python -m pytest -q tests/test_ingest_job.py` (each source, detached worktree) · `AssertionError: 0 != 1`, `AssertionError: assert None is not None`, `AssertionError: Lists differ: [] != ['warning']` | `GREEN_CI` |
-| AC-08 | `313ad0e` · `PYTHONPATH=src python -m pytest -q tests/test_yield_records.py` (defi) · `KeyError: 'pool-1'` (found by mypy: `ordered` held pool ids, `by_id` used `id#n` keys) | `GREEN_CI` |
-| AC-09 | none (characterisation; passed first run) | `GREEN_CI` |
+| AC-01..07 | `313ad0e` · `PYTHONPATH=src python -m pytest -q tests/test_ingest_job.py` (each source, detached worktree) · `AssertionError: 0 != 1`, `AssertionError: assert None is not None`, `AssertionError: Lists differ: [] != ['warning']` | https://github.com/bookchaowalit/market-data/actions/runs/39755737596 (`54b1018`, success: 8 source jobs + security) |
+| AC-08 | `313ad0e` · `PYTHONPATH=src python -m pytest -q tests/test_yield_records.py` (defi) · `KeyError: 'pool-1'` (found by mypy: `ordered` held pool ids, `by_id` used `id#n` keys) | https://github.com/bookchaowalit/market-data/actions/runs/39755737596 (`54b1018`, success: 8 source jobs + security) |
+| AC-09 | none (characterisation; passed first run) | https://github.com/bookchaowalit/market-data/actions/runs/39755737596 (`54b1018`, success: 8 source jobs + security) |
 
 ## Contract findings (v2 registry, offline)
 

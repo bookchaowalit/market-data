@@ -60,10 +60,10 @@ try:
     from .fsutil import atomic_append_csv, atomic_write_csv
     from .quality import finite_number, summarize_rejections
 except ImportError:  # pragma: no cover
-    _dp_config = None
-    _lake = None
+    _dp_config = None  # type: ignore[assignment]  # fallback when imported outside the package
+    _lake = None  # type: ignore[assignment]  # fallback when imported outside the package
 
-    def evaluate_provider(name):
+    def evaluate_provider(name):  # type: ignore[misc]
         class D:
             allowed = True
             status = "free"
@@ -71,16 +71,16 @@ except ImportError:  # pragma: no cover
 
         return D()
 
-    def require_provider(name):
+    def require_provider(name):  # type: ignore[misc]
         return evaluate_provider(name)
 
-    def require_external_writes(action):
+    def require_external_writes(action):  # type: ignore[misc]
         return None
 
-    def external_writes_allowed():
+    def external_writes_allowed():  # type: ignore[misc]
         return False
 
-    def seed_fixtures(data_dir=None):
+    def seed_fixtures(data_dir=None):  # type: ignore[misc]
         return None
 
 

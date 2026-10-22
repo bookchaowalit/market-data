@@ -191,7 +191,7 @@ def yield_records_from_pools(
     received = event_time or utc_now_iso()
     # Parse provider timestamps when present (unix seconds).
     by_id: dict[str, dict[str, Any]] = {}
-    ordered: list[dict[str, Any]] = []
+    ordered: list[str] = []
 
     for pool in pools:
         if not isinstance(pool, dict):

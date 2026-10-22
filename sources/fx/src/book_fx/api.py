@@ -209,8 +209,8 @@ class DataProductHandler(BaseHTTPRequestHandler):
                         extra={"error": "missing record_id"},
                     ),
                 )
-            item = get_record(record_id)
-            if item is None:
+            record = get_record(record_id)
+            if record is None:
                 return _json_response(
                     self,
                     404,
@@ -225,7 +225,7 @@ class DataProductHandler(BaseHTTPRequestHandler):
                 self,
                 200,
                 envelope(
-                    items=[item],
+                    items=[record],
                     data_status=records["data_status"],
                     retrieved_at=records["retrieved_at"],
                 ),

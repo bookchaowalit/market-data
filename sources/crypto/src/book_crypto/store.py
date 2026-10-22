@@ -220,7 +220,7 @@ def _parity_report(
     }
 
 
-def _lake_uri_for_reads() -> Optional[str]:
+def _lake_uri_for_reads() -> str:
     if config.DATA_LAKE_URI.strip():
         return config.DATA_LAKE_URI.strip()
     return lake.default_data_lake_uri()

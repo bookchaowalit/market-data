@@ -3,25 +3,57 @@ name = "book-defi-data"
 version = "0.1.0"
 description = "DeFi yield data ingestion and CLI from DefiLlama."
 requires-python = ">=3.11"
-dependencies = ["httpx>=0.27"]
+dependencies = ["httpx>=0.27", "sentry-sdk>=2.72,<3"]
 
 [project.optional-dependencies]
 # Shared lake-first runtime (landing, Bronze Parquet, Silver, DuckDB reads).
-# Pinned to an exact commit so CI runs the lake tests reproducibly.
+# Pinned to an exact, CI-verified data-lake-core commit (same form as career-job-market-data).
 lake = [
   "duckdb>=1.1.0,<2.0.0",
   "pyarrow>=14.0.0,<24.0.0",
-  "solo-empire-data-lake[lake] @ https://github.com/bookchaowalit/data-lake-core/archive/b8f8698995a4d4283247bd432d521b337ef8ec94.tar.gz",
+  "solo-empire-data-lake[lake] @ https://github.com/bookchaowalit/data-lake-core/archive/e5dbb1462e9a2c159e65565c40e1dda194699e30.tar.gz",
+]
+
+# Development tools (CI installs every extra from uv.lock: uv sync --frozen --all-extras).
+dev = [
+  "pytest>=8",
+  "pytest-cov>=7",
+  "ruff==0.16.9",
+  "mypy==2.4.0",
 ]
 
 [project.scripts]
 book-defi-data = "book_defi.ingest:main"
 book-defi-data-api = "book_defi.api:main"
 
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["src"]
 
 [tool.ruff.lint]
 # Pin the classic default rule set explicitly so newer ruff releases (0.16+
 # widened the defaults) do not change what CI enforces.
 select = ["E4", "E7", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "scripts"]
+# tests/ are not typed yet (follow-up). Gradual: bodies are checked (check_untyped_defs) without requiring annotations everywhere.
+# New modules are strict (override below); tighten the rest module by module.
+check_untyped_defs = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+

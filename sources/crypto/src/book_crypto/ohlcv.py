@@ -26,7 +26,7 @@ import json
 import sys
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from . import config
 from . import lake as _lake
@@ -34,7 +34,7 @@ from .policy import require_provider
 from .quality import epoch_ms, finite_number, non_negative_number
 
 PROVIDER = "binance_public_market_data"
-MARKETS = {
+MARKETS: dict[str, dict[str, Any]] = {
     "futures": {
         "venue": "binance_futures",
         "klines_url": "https://fapi.binance.com/fapi/v1/klines",
@@ -112,7 +112,7 @@ def valid_kline(row: list[Any]) -> bool:
     volumes = [non_negative_number(row[i]) for i in (5, 7)]
     if any(v is None for v in prices + volumes) or trades < 0 or close_ms <= open_ms:
         return False
-    open_, high, low, close = prices
+    open_, high, low, close = cast("list[float]", prices)  # no None: checked above
     return high >= max(open_, close, low) and low <= min(open_, close)
 
 
@@ -133,7 +133,8 @@ def kline_records(
     for row in payload:
         if not valid_kline(row):
             continue
-        open_ms, close_ms = epoch_ms(row[0]), epoch_ms(row[6])  # non-None: valid_kline
+        # non-None: valid_kline checked both
+        open_ms, close_ms = cast(int, epoch_ms(row[0])), cast(int, epoch_ms(row[6]))
         if close_ms >= now_ms:
             continue  # bar still forming
         if open_ms in seen:

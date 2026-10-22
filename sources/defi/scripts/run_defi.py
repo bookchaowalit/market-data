@@ -7,12 +7,16 @@ import argparse
 import asyncio
 import json
 import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+# The cron venv installs requirements-collect.txt only, not this package.
+sys.path.insert(0, str(ROOT / "src"))
 
+from book_defi import observability  # noqa: E402
 from scrape_defi_yields import DeFiYieldScraper  # noqa: E402
 
 CHAINS = ["Ethereum", "Arbitrum", "Optimism", "Polygon", "Base"]
@@ -41,7 +45,13 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, default=ROOT / "data" / "exported")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
-    results = asyncio.run(run_defi(args.output_dir))
+    observability.init_sentry("cron")
+    try:
+        results = asyncio.run(run_defi(args.output_dir))
+    except Exception as exc:  # noqa: BLE001 - report, keep the traceback, exit non-zero
+        traceback.print_exc()
+        observability.report_failure("cron capture", exc)
+        return 1
     if args.json:
         print(json.dumps(results, ensure_ascii=False))
     return 0

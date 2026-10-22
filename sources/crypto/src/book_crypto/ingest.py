@@ -52,6 +52,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = PROJECT_ROOT / "data"
 
 # Free-only policy / local store (API-compatible local data)
+from . import observability  # noqa: E402 - after the path constants, like the block below
+
 try:
     from . import config as _dp_config
     from .policy import (
@@ -434,6 +436,7 @@ def run_live_ingest(
                 project_trending_csv(trending, output_dir)
         except Exception as e:  # noqa: BLE001 - trending is best-effort after prices
             print(f"  Trending failed: {e}")
+            observability.report_skipped("trending", e)
 
     print_alerts(data, alert_threshold, currencies)
     print("\n  Done (lake durable; CSV is projection only).")
@@ -452,6 +455,12 @@ def _csv_arg(value: str) -> list[str]:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """CLI and scheduled-job entry point; failed runs reach Sentry when SENTRY_DSN is set."""
+    observability.init_sentry("ingest")
+    return observability.report_exit(_run(argv))
+
+
+def _run(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Scrape crypto prices via CoinGecko (lake-first; CSV is projection)"
     )
@@ -545,6 +554,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             project_csv=not args.no_project_csv,
         )
     except Exception as exc:  # noqa: BLE001
+        observability.report_failure("ingest", exc)
         # Lake/runtime failures must not leave a false success path.
         if _lake is not None and isinstance(
             exc, (_lake.LakeUnavailable, _lake.LakeIngestError)

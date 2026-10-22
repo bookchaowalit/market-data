@@ -43,6 +43,8 @@ httpx = _HttpxProxy()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = PROJECT_ROOT / "data"
 
+from . import observability  # noqa: E402 - after the path constants, like the block below
+
 try:
     from . import config as _dp_config
     from .policy import (
@@ -485,6 +487,12 @@ def run_live_ingest(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """CLI and scheduled-job entry point; failed runs reach Sentry when SENTRY_DSN is set."""
+    observability.init_sentry("ingest")
+    return observability.report_exit(_run(argv))
+
+
+def _run(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Scrape DeFi yields (lake-first; CSV is projection)"
     )
@@ -557,6 +565,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             project_csv=not args.no_project_csv,
         )
     except Exception as exc:  # noqa: BLE001
+        observability.report_failure("ingest", exc)
         if _lake is not None and isinstance(
             exc, (_lake.LakeUnavailable, _lake.LakeIngestError)
         ):

@@ -256,8 +256,9 @@ def yield_records_from_pools(
                 by_id[pool_id] = record
                 ordered.append(pool_id)
         else:
-            ordered.append(pool_id)
-            by_id[f"{pool_id}#{len(ordered)}"] = record
+            key = f"{pool_id}#{len(ordered)}"
+            ordered.append(key)
+            by_id[key] = record
 
     if dedupe:
         return [by_id[pid] for pid in ordered]

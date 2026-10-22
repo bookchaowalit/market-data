@@ -40,6 +40,8 @@ httpx = _HttpxProxy()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = PROJECT_ROOT / "data"
 
+from . import observability  # noqa: E402 - after the path constants, like the block below
+
 try:
     from . import config as _dp_config
     from .policy import (
@@ -349,6 +351,7 @@ def run_live_ingest(
                 trends[symbol] = detect_trend(history_list, symbol, lookback=7)
         except Exception as e:  # noqa: BLE001
             print(f"  History fetch failed: {e}")
+            observability.report_skipped("history fetch", e)
 
     # Durable rates write before any CSV; fail-closed if this raises.
     lake_rates = _lake_ingest_rates(
@@ -393,6 +396,7 @@ def run_live_ingest(
                 )
         except Exception as e:  # noqa: BLE001
             print(f"  History lake write skipped: {e}")
+            observability.report_skipped("history lake write", e)
 
     if project_csv:
         project_rates_csv(data, output_dir, trends)
@@ -412,6 +416,12 @@ _CURRENCY_RE = re.compile(r"[A-Z]{3}")
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """CLI and scheduled-job entry point; failed runs reach Sentry when SENTRY_DSN is set."""
+    observability.init_sentry("ingest")
+    return observability.report_exit(_run(argv))
+
+
+def _run(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Scrape exchange rates (lake-first; CSV is projection)"
     )
@@ -490,6 +500,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             project_csv=not args.no_project_csv,
         )
     except Exception as exc:  # noqa: BLE001
+        observability.report_failure("ingest", exc)
         if _lake is not None and isinstance(
             exc, (_lake.LakeUnavailable, _lake.LakeIngestError)
         ):

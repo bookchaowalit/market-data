@@ -25,16 +25,22 @@ source; extracting them is the next step.
 
 ## Develop and test
 
-Each source is its own Python package:
+Each source is its own Python package with its own `uv.lock` (uv 0.13+). CI runs the
+same steps for every source on Python 3.11 and 3.13 (matrix in `.github/workflows/ci.yml`):
 
 ```bash
 cd sources/crypto
-python -m venv .venv && .venv/bin/pip install -e ".[lake]" pytest ruff
-.venv/bin/python -m pytest -q
+uv sync --frozen --all-extras      # lake extra (pinned data-lake-core) + dev tools
+uv run ruff check . && uv run ruff format --check .
+uv run mypy                        # scope and strictness in [tool.mypy]
+FREE_ONLY=true uv run python -m pytest -q -rs --cov   # offline; no provider calls
 ```
 
-CI runs the same steps for every source (matrix in `.github/workflows/ci.yml`).
-See each source's README for its data contract, lake layout and API.
+Error reporting is opt-in: set `SENTRY_DSN` (and optionally `SENTRY_ENVIRONMENT`) for a
+scheduled `python -m book_<source>.ingest` run, or for `sources/defi/scripts/run_defi.py`.
+Events carry the source id, a stage label and the exception type only (no payloads, no
+exception messages, no frame locals). See each source's README for its data contract,
+lake layout and API, and `PRODUCT.md` for what runs today.
 
 ## License
 

@@ -30,19 +30,19 @@ jobs:
           - source: crypto
             package: book_crypto
             cli: book-crypto-data
-            coverage: "76"
+            coverage: "78"
           - source: stock
             package: book_stock
             cli: book-stock-data
-            coverage: "75"
+            coverage: "79"
           - source: fx
             package: book_fx
             cli: book-fx-data
-            coverage: "74"
+            coverage: "77"
           - source: defi
             package: book_defi
             cli: book-defi-data
-            coverage: "72"
+            coverage: "76"
     uses: bookchaowalit/platform-ci-workflows/.github/workflows/ci-python.yml@87dc5e1c7e0416886a6371d5a101bb2ccba38edd # v1.1.1
     with:
       working-directory: sources/${{ matrix.source }}

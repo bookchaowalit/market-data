@@ -51,6 +51,9 @@ jobs:
       # pinned data-lake-core commit, so the Bronze/Silver lake tests run instead of skipping, and
       # the dev extra (pytest, pytest-cov, ruff, mypy).
       coverage-threshold: ${{ matrix.coverage }}
+      # Plain `mypy` so [tool.mypy] files (src; defi also scripts) sets the scope; the default
+      # `mypy .` would also check the untyped tests.
+      typecheck-command: mypy
       # Free-only guard flags as before; -rs keeps any remaining skips visible. No network.
       test-command: |
         python -c "import data_lake.product_adapter, data_lake.silver"

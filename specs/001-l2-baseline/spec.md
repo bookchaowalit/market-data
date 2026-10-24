@@ -1,7 +1,7 @@
 ---
 id: SPEC-001
 title: L2 baseline for market-data
-status: in review
+status: approved
 created: 2026-10-22
 owner: bookchaowalit
 ---
@@ -14,7 +14,7 @@ owner: bookchaowalit
 |---|---|
 | Main-only | yes (ADR-0004 v1.1: red run is local, red and green commits pushed together) |
 | Maker | Claude session b-data (2026-10-22) |
-| Checker / approver | pending (owner) |
+| Checker / approver | independent Claude reviewer / AI approval 2026-10-24 (see Approval) |
 
 ## Problem
 
@@ -105,3 +105,13 @@ snapshot cron (`run_defi.py`) or fold it into the defi ingest job.
 
 Live provider calls, R2 writes, scheduler changes, the shared-module extraction noted in the
 README, typing tests/, the 80% coverage floor (follow-up).
+
+## Approval (2026-10-24)
+
+| Field | Value |
+|---|---|
+| Checker | independent Claude reviewer subagent (`solo:solo-reviewer`, Sonnet, read-only, no maker context) |
+| Approver | AI approval under the owner's process (approvals by the owner or AI with evidence; maker and checker are different agents). Recorded by Claude session oa-remainder on the owner's instruction "ทำที่เหลือให้หน่อย" (2026-10-24) |
+| Verdict | **approved** |
+| Tests run by the checker | per source with FREE_ONLY=true ALLOW_PAID_PROVIDERS=false ALLOW_EXTERNAL_WRITES=false: crypto 87, defi 66, fx 81, stock 70 passed |
+| Evidence | uv.lock per source pinned to data-lake-core e5dbb14; Sentry tests in test_ingest_job.py; defi cron runner test; test_yield_records.py; test_contract_v2.py per source; coverage 78/79/77/76 matches CI. |
